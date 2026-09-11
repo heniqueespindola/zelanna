@@ -1,7 +1,8 @@
 import { Redirect } from 'expo-router';
+import { useAuth } from '@/hooks/useAuth';
 
-// TODO: F01 — trocar por lógica real de sessão (useAuth) quando o Supabase Auth estiver ligado.
-// Por agora, entra sempre no fluxo de login.
 export default function Index() {
-  return <Redirect href="/(auth)/login" />;
+  const { session, loading } = useAuth();
+  if (loading) return null; // SplashScreenController mantém o splash visível
+  return <Redirect href={session ? '/(dashboard)' : '/(auth)/login'} />;
 }

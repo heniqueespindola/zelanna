@@ -1,8 +1,36 @@
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { Link } from 'expo-router';
-import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { colors, fonts, spacing } from '@/constants/theme';
+import { useAuth } from '@/hooks/useAuth';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { getAuthErrorMessage, isValidEmail } from '@/lib/authErrors';
 
 export default function LoginScreen() {
+  const { signIn } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !isValidEmail(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (!password) {
+      setError('Please enter your password.');
+      return;
+    }
+
+    setError(null);
+    setSubmitting(true);
+    const { error: signInError } = await signIn(email, password);
+    if (signInError) setError(getAuthErrorMessage(signInError));
+    setSubmitting(false);
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Zelanna</Text>
@@ -10,11 +38,18 @@ export default function LoginScreen() {
         Know what you own, what you pay for, what protects you.
       </Text>
 
-      {/* TODO: F01 — formulário de login com Supabase Auth (email + password) */}
+      <Input
+        label="Email"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+      <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry />
 
-      <Pressable style={styles.button}>
-        <Text style={styles.buttonText}>Log in</Text>
-      </Pressable>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <Button title="Log in" onPress={handleLogin} loading={submitting} />
 
       <Link href="/(auth)/register" style={styles.link}>
         Don't have an account? Sign up
@@ -44,17 +79,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
-  button: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    alignItems: 'center',
-  },
-  buttonText: {
+  error: {
     fontFamily: fonts.body,
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
+    color: colors.critical,
+    textAlign: 'center',
   },
   link: {
     fontFamily: fonts.body,
