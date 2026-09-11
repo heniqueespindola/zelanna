@@ -1,0 +1,19 @@
+import { View, Text, StyleSheet } from 'react-native';
+import { colors, fonts, spacing } from '@/constants/theme';
+
+export default function SettingsScreen() {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Settings</Text>
+      <Text style={styles.subtitle}>Profile, plan and privacy.</Text>
+
+      {/* TODO: perfil, plano (Stripe), privacidade, logout */}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bgDarkest, padding: spacing.lg, gap: spacing.md },
+  title: { fontFamily: fonts.display, fontSize: 24, color: colors.white },
+  subtitle: { fontFamily: fonts.body, color: colors.border },
+});

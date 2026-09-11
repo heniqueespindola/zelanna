@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Zelanna",
+    "slug": "zelanna",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "zelanna",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#131E15",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mocruz.zelanna"
+    },
+    "android": {
+      "package": "com.mocruz.zelanna",
+      "adaptiveIcon": {
+        "backgroundColor": "#131E15",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#131E15",
+          "image": "./assets/icon.png"
+        }
+      ],
+      "expo-status-bar"
+    ]
+  }
+}
