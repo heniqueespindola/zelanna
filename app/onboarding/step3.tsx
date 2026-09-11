@@ -1,24 +1,32 @@
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Link } from 'expo-router';
-import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { View, Text, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { colors, fonts, spacing } from '@/constants/theme';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import { OnboardingProgress } from '@/components/onboarding/OnboardingProgress';
+import { generateOnboardingInsight } from '@/lib/rulesEngine';
+import { Button } from '@/components/ui/Button';
 
 export default function OnboardingStep3() {
+  const router = useRouter();
+  const { uploadedDocument, goals, markCompleted } = useOnboarding();
+
+  const insight = uploadedDocument ? generateOnboardingInsight(uploadedDocument.extracted_data) : null;
+  const message = insight ? insight.message : 'Upload a document to see your first insight.';
+
   return (
     <View style={styles.container}>
-      <Text style={styles.step}>3 / 3</Text>
+      <OnboardingProgress step={3} />
       <Text style={styles.badge}>✨ Here's what we found</Text>
       <Text style={styles.title}>Your first insight</Text>
-      <Text style={styles.subtitle}>
-        {/* TODO: F02/F03 — este é o "Aha Moment" gerado a partir do documento carregado */}
-        This is where the first insight from your uploaded document appears —
-        e.g. a warranty expiry date or a coverage gap.
-      </Text>
+      <Text style={styles.subtitle}>{message}</Text>
 
-      <Link href="/(dashboard)" asChild>
-        <Pressable style={styles.button}>
-          <Text style={styles.buttonText}>Go to dashboard</Text>
-        </Pressable>
-      </Link>
+      <Button
+        title="Go to dashboard"
+        onPress={async () => {
+          await markCompleted(goals);
+          router.replace('/(dashboard)');
+        }}
+      />
     </View>
   );
 }
@@ -30,11 +38,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
-  },
-  step: {
-    fontFamily: fonts.body,
-    color: colors.surfaceAlt,
-    textAlign: 'center',
   },
   badge: {
     fontFamily: fonts.body,
@@ -54,17 +57,5 @@ const styles = StyleSheet.create({
     color: colors.surfaceAlt,
     textAlign: 'center',
     marginBottom: spacing.lg,
-  },
-  button: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    alignItems: 'center',
-  },
-  buttonText: {
-    fontFamily: fonts.body,
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

@@ -10,7 +10,11 @@
     "backgroundColor": "#131E15",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mocruz.zelanna"
+      "bundleIdentifier": "com.mocruz.zelanna",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Zelanna needs access to your photos to let you upload documents like invoices, warranties and insurance policies.",
+        "NSCameraUsageDescription": "Zelanna needs access to your camera to let you photograph documents like invoices, warranties and insurance policies."
+      }
     },
     "android": {
       "package": "com.mocruz.zelanna",
@@ -32,7 +36,14 @@
           "image": "./assets/icon.png"
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Zelanna needs access to your photos to let you upload documents like invoices, warranties and insurance policies.",
+          "cameraPermission": "Zelanna needs access to your camera to let you photograph documents like invoices, warranties and insurance policies."
+        }
+      ]
     ]
   }
 }

@@ -5,8 +5,12 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "^2.109.0",
+    "base64-arraybuffer": "^1.0.2",
     "expo": "~57.0.21",
     "expo-constants": "~57.0.17",
+    "expo-document-picker": "~57.0.2",
+    "expo-file-system": "~57.0.7",
+    "expo-image-picker": "~57.0.17",
     "expo-linking": "~57.0.9",
     "expo-router": "~57.0.20",
     "expo-secure-store": "~57.0.3",
@@ -27,8 +31,8 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint"
   },

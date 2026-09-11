@@ -1,23 +1,30 @@
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Link } from 'expo-router';
-import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { View, Text, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { colors, fonts, spacing } from '@/constants/theme';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import { OnboardingProgress } from '@/components/onboarding/OnboardingProgress';
+import { DocumentUpload } from '@/components/documents/DocumentUpload';
+import { Button } from '@/components/ui/Button';
 
 export default function OnboardingStep2() {
+  const router = useRouter();
+  const { uploadedDocument, setUploadedDocument } = useOnboarding();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.step}>2 / 3</Text>
+      <OnboardingProgress step={2} />
       <Text style={styles.title}>Upload your first document</Text>
       <Text style={styles.subtitle}>
         A bill, a warranty or an insurance policy — Zelanna will read it for you.
       </Text>
 
-      {/* TODO: F03 — upload de documento + preview da extração Vision LLM */}
+      <DocumentUpload onExtracted={(doc) => setUploadedDocument(doc)} />
 
-      <Link href="/onboarding/step3" asChild>
-        <Pressable style={styles.button}>
-          <Text style={styles.buttonText}>Continue</Text>
-        </Pressable>
-      </Link>
+      <Button
+        title="Continue"
+        disabled={!uploadedDocument}
+        onPress={() => router.push('/onboarding/step3')}
+      />
     </View>
   );
 }
@@ -29,11 +36,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
-  },
-  step: {
-    fontFamily: fonts.body,
-    color: colors.surfaceAlt,
-    textAlign: 'center',
   },
   title: {
     fontFamily: fonts.display,
@@ -47,17 +49,5 @@ const styles = StyleSheet.create({
     color: colors.surfaceAlt,
     textAlign: 'center',
     marginBottom: spacing.lg,
-  },
-  button: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    alignItems: 'center',
-  },
-  buttonText: {
-    fontFamily: fonts.body,
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
