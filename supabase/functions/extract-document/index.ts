@@ -114,28 +114,7 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  const { data: inserted, error: insertError } = await supabaseAuthed
-    .from('documents')
-    .insert({
-      user_id: user.id,
-      file_url: documentPath,
-      document_type: extracted.document_type,
-      provider: extracted.provider,
-      date: extracted.date,
-      amount: extracted.amount,
-      extracted_data: extracted,
-    })
-    .select()
-    .single();
-
-  if (insertError || !inserted) {
-    return new Response(JSON.stringify({ error: 'Could not save document.' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  return new Response(JSON.stringify(inserted), {
+  return new Response(JSON.stringify(extracted), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });

@@ -4,31 +4,34 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
-import { uploadAndExtractDocument } from '@/lib/extraction';
+import { uploadDocument, extractDocument } from '@/lib/extraction';
 import { Button } from '@/components/ui/Button';
-import type { UploadedDocument } from '@/types/documents';
+import { DocumentPreviewForm } from '@/components/documents/DocumentPreviewForm';
+import type { ExtractionResult, UploadedDocument } from '@/types/documents';
 
 interface Props {
   onExtracted: (doc: UploadedDocument) => void;
 }
 
-type Status = 'idle' | 'uploading' | 'extracting' | 'done' | 'error';
+type Status = 'idle' | 'uploading' | 'extracting' | 'previewing' | 'done' | 'error';
 
 export function DocumentUpload({ onExtracted }: Props) {
   const { user } = useAuth();
   const [status, setStatus] = useState<Status>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [result, setResult] = useState<UploadedDocument | null>(null);
+  const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
+  const [savedDoc, setSavedDoc] = useState<UploadedDocument | null>(null);
 
   const processAsset = async (params: { uri: string; mimeType: string; base64?: string }) => {
     if (!user) return;
     setErrorMessage(null);
     setStatus('uploading');
     try {
-      const doc = await uploadAndExtractDocument({ userId: user.id, ...params });
-      setStatus('done');
-      setResult(doc);
-      onExtracted(doc);
+      const { documentPath } = await uploadDocument({ userId: user.id, ...params });
+      setStatus('extracting');
+      const result = await extractDocument({ documentPath, mimeType: params.mimeType });
+      setExtraction(result);
+      setStatus('previewing');
     } catch {
       setStatus('error');
       setErrorMessage('Something went wrong. Please try again.');
@@ -56,6 +59,17 @@ export function DocumentUpload({ onExtracted }: Props) {
     await processAsset({ uri: asset.uri, mimeType: asset.mimeType ?? 'application/pdf' });
   };
 
+  const handleSaved = (doc: UploadedDocument) => {
+    setSavedDoc(doc);
+    setStatus('done');
+    onExtracted(doc);
+  };
+
+  const handleCancelled = () => {
+    setExtraction(null);
+    setStatus('idle');
+  };
+
   return (
     <View style={styles.container}>
       {status === 'idle' || status === 'error' ? (
@@ -66,20 +80,30 @@ export function DocumentUpload({ onExtracted }: Props) {
         </View>
       ) : null}
 
-      {status === 'uploading' || status === 'extracting' ? (
-        <Text style={styles.status}>Uploading & reading your document…</Text>
-      ) : null}
+      {status === 'uploading' ? <Text style={styles.status}>Uploading your document…</Text> : null}
+
+      {status === 'extracting' ? <Text style={styles.status}>Reading your document…</Text> : null}
 
       {status === 'error' && errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
 
-      {status === 'done' && result ? (
+      {status === 'previewing' && extraction && user ? (
+        <DocumentPreviewForm
+          userId={user.id}
+          documentPath={extraction.documentPath}
+          extracted={extraction.extracted}
+          onSaved={handleSaved}
+          onCancelled={handleCancelled}
+        />
+      ) : null}
+
+      {status === 'done' && savedDoc ? (
         <View style={styles.preview}>
           <Text style={styles.previewTitle}>Document saved</Text>
-          <Text style={styles.previewRow}>Type: {result.extracted_data.document_type ?? '—'}</Text>
-          <Text style={styles.previewRow}>Provider: {result.extracted_data.provider ?? '—'}</Text>
-          <Text style={styles.previewRow}>Date: {result.extracted_data.date ?? '—'}</Text>
+          <Text style={styles.previewRow}>Type: {savedDoc.document_type ?? '—'}</Text>
+          <Text style={styles.previewRow}>Provider: {savedDoc.provider ?? '—'}</Text>
+          <Text style={styles.previewRow}>Date: {savedDoc.date ?? '—'}</Text>
           <Text style={styles.previewRow}>
-            Amount: {result.extracted_data.amount !== null ? `€${result.extracted_data.amount}` : '—'}
+            Amount: {savedDoc.amount !== null ? `€${savedDoc.amount}` : '—'}
           </Text>
         </View>
       ) : null}

@@ -45,6 +45,9 @@ create table if not exists public.documents (
   created_at timestamptz not null default now()
 );
 
+alter table public.documents
+  add column if not exists expiry_date date;
+
 alter table public.documents enable row level security;
 
 create policy "Users can view own documents"

@@ -8,6 +8,12 @@ export interface ExtractedDocumentData {
   expiry_date: string | null;
 }
 
+export interface ExtractionResult {
+  documentPath: string;
+  mimeType: string;
+  extracted: ExtractedDocumentData;
+}
+
 export interface UploadedDocument {
   id: string;
   file_url: string;
@@ -15,6 +21,7 @@ export interface UploadedDocument {
   provider: string | null;
   date: string | null;
   amount: number | null;
+  expiry_date: string | null;
   extracted_data: ExtractedDocumentData;
   created_at: string;
 }

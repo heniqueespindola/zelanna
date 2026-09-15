@@ -265,9 +265,9 @@ antes das fases anteriores estarem validadas e estáveis.
 
 | # | Feature | Fase | Notas |
 |---|---|---|---|
-| — | Manual Validation | Phase 0 | Sem código — gate obrigatório |
-| F01 | Autenticação | Phase 1 | |
-| F02 | Onboarding | Phase 1 | Inclui o "Aha Moment" |
+| — | Manual Validation | Phase 0 | Sem código — gate obrigatório | Done
+| F01 | Autenticação | Phase 1 | Done
+| F02 | Onboarding | Phase 1 | Inclui o "Aha Moment" | Done
 | F03 | Upload + extração AI | Phase 1 | |
 | F04 | Coverage Check | Phase 1 | Hipótese #1 |
 | F05 | Renewal / Price Increase Detection | Phase 1 | Hipótese #2 |
