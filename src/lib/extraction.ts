@@ -1,4 +1,5 @@
 import { decode } from 'base64-arraybuffer';
+import { File } from 'expo-file-system';
 import { supabase } from '@/lib/supabase';
 import type { DocumentType, ExtractedDocumentData, ExtractionResult, UploadedDocument } from '@/types/documents';
 
@@ -15,7 +16,7 @@ export async function uploadDocument(params: {
   const path = `${params.userId}/${Date.now()}-${filenameFromUri(params.uri)}`;
   const fileBody = params.base64
     ? decode(params.base64)
-    : await fetch(params.uri).then((res) => res.arrayBuffer());
+    : await new File(params.uri).arrayBuffer();
 
   const { error } = await supabase.storage
     .from('documents')
@@ -33,7 +34,11 @@ export async function extractDocument(params: {
     'extract-document',
     { body: params }
   );
-  if (error || !data) throw new Error('Extraction failed');
+  if (error || !data) {
+    const details = await (error as { context?: Response })?.context?.text?.().catch(() => null);
+    console.error('extract-document invoke error:', error, 'response body:', details);
+    throw new Error('Extraction failed');
+  }
   return { documentPath: params.documentPath, mimeType: params.mimeType, extracted: data };
 }
 

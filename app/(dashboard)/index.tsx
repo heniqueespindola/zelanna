@@ -1,21 +1,58 @@
+import { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
+import { useAuth } from '@/hooks/useAuth';
+import { fetchUpcomingRenewals, fetchRecentInsights } from '@/lib/insights';
+import { RenewalTimeline } from '@/components/dashboard/RenewalTimeline';
+import { InsightCard } from '@/components/dashboard/InsightCard';
+import type { Contract } from '@/types/contracts';
+import type { Insight } from '@/types/insights';
 
 export default function DashboardScreen() {
+  const { user } = useAuth();
+  const [renewals, setRenewals] = useState<Contract[] | null>(null);
+  const [insights, setInsights] = useState<Insight[] | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      Promise.all([fetchUpcomingRenewals(user.id), fetchRecentInsights(user.id)]).then(
+        ([loadedRenewals, loadedInsights]) => {
+          setRenewals(loadedRenewals);
+          setInsights(loadedInsights);
+        }
+      );
+    }, [user])
+  );
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Dashboard</Text>
-      <Text style={styles.subtitle}>What's happening with your life admin.</Text>
+      <Text style={styles.subtitle}>What&apos;s happening with your life admin.</Text>
 
-      {/* TODO: F08 — Alerts e Life Calendar básico (eventos + insights recentes) */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Upcoming renewals</Text>
-        <Text style={styles.cardBody}>No renewals tracked yet.</Text>
+        {renewals === null ? (
+          <Text style={styles.cardBody}>Loading…</Text>
+        ) : (
+          <RenewalTimeline contracts={renewals} />
+        )}
       </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Recent insights</Text>
-        <Text style={styles.cardBody}>Upload a document to get your first insight.</Text>
+        {insights === null ? (
+          <Text style={styles.cardBody}>Loading…</Text>
+        ) : insights.length === 0 ? (
+          <Text style={styles.cardBody}>Upload a document to get your first insight.</Text>
+        ) : (
+          <View style={{ gap: spacing.sm }}>
+            {insights.map((insight) => (
+              <InsightCard key={insight.id} insight={insight} />
+            ))}
+          </View>
+        )}
       </View>
     </ScrollView>
   );
@@ -30,6 +67,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
     borderRadius: radius.md,
     padding: spacing.md,
+    gap: spacing.sm,
   },
   cardTitle: { fontFamily: fonts.body, fontWeight: '600', color: colors.white, marginBottom: spacing.xs },
   cardBody: { fontFamily: fonts.body, color: colors.border },

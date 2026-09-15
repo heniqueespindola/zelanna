@@ -17,6 +17,7 @@ export interface ExtractionResult {
 export interface UploadedDocument {
   id: string;
   asset_id: string | null;
+  contract_id: string | null;
   file_url: string;
   document_type: DocumentType | null;
   provider: string | null;

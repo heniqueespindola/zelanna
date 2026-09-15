@@ -25,6 +25,11 @@ Extract the following fields and respond with ONLY a JSON object, no prose, no m
 }
 Use ISO 8601 (YYYY-MM-DD) for "date" and "expiry_date". "expiry_date" is the expiration or renewal date, when applicable (e.g. warranty end date, insurance renewal date). Use null for any field you cannot determine with confidence.`;
 
+function stripMarkdownFences(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  return fenced ? fenced[1] : text;
+}
+
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -98,17 +103,28 @@ Deno.serve(async (req: Request) => {
     }),
   });
 
+  if (!anthropicResponse.ok) {
+    const errorBody = await anthropicResponse.text();
+    console.error('Anthropic API error:', anthropicResponse.status, errorBody);
+    return new Response(
+      JSON.stringify({ error: 'Document extraction service is unavailable.', status: anthropicResponse.status, detail: errorBody }),
+      { status: 502, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
   const anthropicResult = await anthropicResponse.json();
   const rawText: string | undefined = anthropicResult?.content?.[0]?.text;
 
   let extracted: ExtractedDocumentData;
   try {
     if (!rawText) throw new Error('Empty response');
-    extracted = JSON.parse(rawText);
-  } catch {
+    extracted = JSON.parse(stripMarkdownFences(rawText));
+  } catch (parseError) {
+    console.error('Could not parse Claude response as JSON:', parseError, 'raw text:', rawText, 'full result:', JSON.stringify(anthropicResult));
     return new Response(
       JSON.stringify({
         error: 'Não foi possível interpretar este documento. Tenta outra foto ou ficheiro.',
+        rawText,
       }),
       { status: 422, headers: { 'Content-Type': 'application/json' } }
     );

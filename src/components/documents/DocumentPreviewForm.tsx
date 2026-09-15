@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { saveDocument, discardDocument } from '@/lib/extraction';
+import { matchDocumentToContract } from '@/lib/contracts';
+import { generateInsightsForContract } from '@/lib/insights';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { DocumentTypeSelector } from '@/components/documents/DocumentTypeSelector';
@@ -52,6 +54,28 @@ export function DocumentPreviewForm({ userId, documentPath, extracted, onSaved, 
         expiryDate: expiryDate.trim() || null,
         extracted,
       });
+
+      try {
+        const match = await matchDocumentToContract({
+          userId,
+          documentId: doc.id,
+          documentType: doc.document_type,
+          provider: doc.provider,
+          amount: doc.amount,
+          date: doc.date,
+          expiryDate: doc.expiry_date,
+        });
+        if (match) {
+          const insights = await generateInsightsForContract({ userId, contract: match.contract, previousAmount: match.previousAmount });
+          console.log('matched contract:', match.contract, 'previousAmount:', match.previousAmount, 'insights created:', insights.length);
+        } else {
+          console.log('matchDocumentToContract returned null (not eligible or no provider) for document_type:', doc.document_type, 'provider:', doc.provider);
+        }
+      } catch (matchError) {
+        console.error('matchDocumentToContract/generateInsightsForContract failed:', matchError);
+        // matching/insight é best-effort — o documento já foi guardado com sucesso
+      }
+
       onSaved(doc);
     } catch {
       setSaving(false);

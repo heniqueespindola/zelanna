@@ -32,7 +32,8 @@ export function DocumentUpload({ onExtracted }: Props) {
       const result = await extractDocument({ documentPath, mimeType: params.mimeType });
       setExtraction(result);
       setStatus('previewing');
-    } catch {
+    } catch (err) {
+      console.error('Document upload/extraction failed:', err);
       setStatus('error');
       setErrorMessage('Something went wrong. Please try again.');
     }
@@ -67,6 +68,13 @@ export function DocumentUpload({ onExtracted }: Props) {
 
   const handleCancelled = () => {
     setExtraction(null);
+    setStatus('idle');
+  };
+
+  const handleUploadAnother = () => {
+    setExtraction(null);
+    setSavedDoc(null);
+    setErrorMessage(null);
     setStatus('idle');
   };
 
@@ -105,6 +113,7 @@ export function DocumentUpload({ onExtracted }: Props) {
           <Text style={styles.previewRow}>
             Amount: {savedDoc.amount !== null ? `€${savedDoc.amount}` : '—'}
           </Text>
+          <Button title="Upload another document" onPress={handleUploadAnother} />
         </View>
       ) : null}
     </View>

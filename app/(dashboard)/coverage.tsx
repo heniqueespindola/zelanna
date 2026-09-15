@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchAssets, fetchCoverageForAsset, fetchDocumentsWithoutAsset } from '@/lib/coverage';
@@ -16,15 +17,17 @@ export default function CoverageScreen() {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [records, setRecords] = useState<CoverageRecord[] | null>(null);
 
-  useEffect(() => {
-    if (!user) return;
-    Promise.all([fetchAssets(user.id), fetchDocumentsWithoutAsset(user.id)]).then(
-      ([loadedAssets, loadedDocuments]) => {
-        setAssets(loadedAssets);
-        setDocumentsWithoutAsset(loadedDocuments);
-      }
-    );
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      Promise.all([fetchAssets(user.id), fetchDocumentsWithoutAsset(user.id)]).then(
+        ([loadedAssets, loadedDocuments]) => {
+          setAssets(loadedAssets);
+          setDocumentsWithoutAsset(loadedDocuments);
+        }
+      );
+    }, [user])
+  );
 
   useEffect(() => {
     if (!selectedAssetId) return;

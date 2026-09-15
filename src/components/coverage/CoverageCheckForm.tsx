@@ -25,44 +25,46 @@ export function CoverageCheckForm({
 }: Props) {
   const [creatingFromDocument, setCreatingFromDocument] = useState<UploadedDocument | null>(null);
 
-  if (assets.length === 0) {
-    return (
-      <View style={styles.container}>
+  return (
+    <View style={styles.container}>
+      {assets.length > 0 ? (
+        <AssetSelector assets={assets} value={selectedAssetId} onChange={onSelectAsset} />
+      ) : (
         <Text style={styles.text}>You don&apos;t have any assets yet.</Text>
-        {documentsWithoutAsset.length === 0 ? (
-          <Text style={styles.text}>Upload a warranty or insurance document in Documents to get started.</Text>
-        ) : (
-          <View style={styles.container}>
-            <Text style={styles.text}>Create an asset from one of your documents:</Text>
-            {documentsWithoutAsset.map((doc) => (
-              <Pressable
-                key={doc.id}
-                style={styles.documentRow}
-                onPress={() => setCreatingFromDocument(doc)}
-              >
-                <Text style={styles.documentText}>
-                  {doc.provider ?? doc.document_type ?? 'Untitled document'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-        {creatingFromDocument ? (
-          <CreateAssetFromDocumentForm
-            userId={userId}
-            document={creatingFromDocument}
-            onCreated={(asset) => {
-              setCreatingFromDocument(null);
-              onAssetCreated(asset, creatingFromDocument.id);
-            }}
-            onCancelled={() => setCreatingFromDocument(null)}
-          />
-        ) : null}
-      </View>
-    );
-  }
+      )}
 
-  return <AssetSelector assets={assets} value={selectedAssetId} onChange={onSelectAsset} />;
+      {documentsWithoutAsset.length > 0 ? (
+        <View style={styles.container}>
+          <Text style={styles.text}>Create an asset from one of your documents:</Text>
+          {documentsWithoutAsset.map((doc) => (
+            <Pressable
+              key={doc.id}
+              style={styles.documentRow}
+              onPress={() => setCreatingFromDocument(doc)}
+            >
+              <Text style={styles.documentText}>
+                {doc.provider ?? doc.document_type ?? 'Untitled document'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : assets.length === 0 ? (
+        <Text style={styles.text}>Upload a warranty or insurance document in Documents to get started.</Text>
+      ) : null}
+
+      {creatingFromDocument ? (
+        <CreateAssetFromDocumentForm
+          userId={userId}
+          document={creatingFromDocument}
+          onCreated={(asset) => {
+            setCreatingFromDocument(null);
+            onAssetCreated(asset, creatingFromDocument.id);
+          }}
+          onCancelled={() => setCreatingFromDocument(null)}
+        />
+      ) : null}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
