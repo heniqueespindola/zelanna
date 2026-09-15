@@ -7,6 +7,7 @@ import type { LifeEvent } from '@/types/events';
 
 const EVENT_COLUMNS = 'id, user_id, type, due_date, source_id, created_at';
 const BILLS_RELEVANT_CONTRACT_TYPES = ['insurance', 'utility'] as const;
+const LIFE_CALENDAR_WINDOW_DAYS = 60;
 
 export async function syncRenewalEvents(userId: string, contracts: Contract[]): Promise<void> {
   const rows = contracts
@@ -17,7 +18,10 @@ export async function syncRenewalEvents(userId: string, contracts: Contract[]): 
   if (error) throw new Error('Could not sync renewal events');
 }
 
-export async function fetchUpcomingEvents(userId: string): Promise<LifeEvent[]> {
+export async function fetchUpcomingEvents(
+  userId: string,
+  windowDays: number = RENEWAL_THRESHOLD_DAYS
+): Promise<LifeEvent[]> {
   const { data, error } = await supabase
     .from('events')
     .select(EVENT_COLUMNS)
@@ -25,22 +29,51 @@ export async function fetchUpcomingEvents(userId: string): Promise<LifeEvent[]> 
     .not('due_date', 'is', null)
     .order('due_date', { ascending: true });
   if (error) throw new Error('Could not load events');
-  return (data ?? []).filter((e) => e.due_date && isExpiringSoon(e.due_date, RENEWAL_THRESHOLD_DAYS));
+  return (data ?? []).filter((e) => e.due_date && isExpiringSoon(e.due_date, windowDays));
 }
 
-export interface UpcomingBillRenewal {
+export interface ContractRenewalEvent {
   event: LifeEvent;
   contract: Contract;
 }
 
-export async function fetchUpcomingBillRenewals(userId: string): Promise<UpcomingBillRenewal[]> {
+function joinEventsWithContracts(events: LifeEvent[], contracts: Contract[]): ContractRenewalEvent[] {
+  const contractsById = new Map(contracts.map((c) => [c.id, c]));
+  return events
+    .filter((e) => e.type === 'renewal' && e.source_id !== null && contractsById.has(e.source_id))
+    .map((e) => ({ event: e, contract: contractsById.get(e.source_id as string) as Contract }));
+}
+
+export async function fetchUpcomingBillRenewals(userId: string): Promise<ContractRenewalEvent[]> {
   const contracts = (await fetchContracts(userId)).filter((c) =>
     c.type !== null && (BILLS_RELEVANT_CONTRACT_TYPES as readonly string[]).includes(c.type)
   );
   await syncRenewalEvents(userId, contracts);
   const events = await fetchUpcomingEvents(userId);
-  const contractsById = new Map(contracts.map((c) => [c.id, c]));
-  return events
-    .filter((e) => e.type === 'renewal' && e.source_id !== null && contractsById.has(e.source_id))
-    .map((e) => ({ event: e, contract: contractsById.get(e.source_id as string) as Contract }));
+  return joinEventsWithContracts(events, contracts);
+}
+
+export async function fetchLifeCalendarEvents(
+  userId: string,
+  windowDays: number = LIFE_CALENDAR_WINDOW_DAYS
+): Promise<ContractRenewalEvent[]> {
+  const contracts = (await fetchContracts(userId)).filter((c) => c.renewal_date !== null);
+  await syncRenewalEvents(userId, contracts);
+  const events = await fetchUpcomingEvents(userId, windowDays);
+  return joinEventsWithContracts(events, contracts);
+}
+
+export function groupEventsByDate(
+  entries: ContractRenewalEvent[]
+): { date: string; entries: ContractRenewalEvent[] }[] {
+  const map = new Map<string, ContractRenewalEvent[]>();
+  for (const entry of entries) {
+    const date = entry.event.due_date as string;
+    const list = map.get(date) ?? [];
+    list.push(entry);
+    map.set(date, list);
+  }
+  return Array.from(map.entries())
+    .map(([date, dateEntries]) => ({ date, entries: dateEntries }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
 }

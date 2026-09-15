@@ -16,6 +16,7 @@ export default function DashboardLayout() {
       <Tabs.Screen name="documents" options={{ title: 'Documents' }} />
       <Tabs.Screen name="coverage" options={{ title: 'Coverage' }} />
       <Tabs.Screen name="bills" options={{ title: 'Bills' }} />
+      <Tabs.Screen name="alerts" options={{ title: 'Alerts' }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
     </Tabs>
   );

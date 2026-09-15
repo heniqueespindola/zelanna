@@ -35,7 +35,15 @@ interface RecurringIncreaseBody {
   amounts: number[];
 }
 
-type RequestBody = PriceIncreaseBody | RenewalBody | AnomalyBody | RecurringIncreaseBody;
+interface CoverageGapBody {
+  type: 'coverage_gap';
+  assetName: string;
+  coverageType: 'warranty' | 'insurance';
+  reason: 'missing' | 'expired';
+  endDate: string | null;
+}
+
+type RequestBody = PriceIncreaseBody | RenewalBody | AnomalyBody | RecurringIncreaseBody | CoverageGapBody;
 
 const EXPLAIN_SYSTEM_PROMPT = `You are writing a short, factual, calm notification for a personal life administration app.
 You will receive numbers that were already calculated by a deterministic rules engine — never recalculate or invent any number.
@@ -44,6 +52,7 @@ For "price_increase": state the provider and the percentage increase, using the 
 For "renewal": state the provider and how many days until renewal, using the exact numbers given.
 For "anomaly": state the provider (and category, if given) and how much the current amount is above the average for the period, using the exact numbers given.
 For "recurring_increase": state the provider (and category, if given) and that the price has increased for the given number of consecutive billing periods, using the exact number given.
+For "coverage_gap": state the asset name, whether the warranty or insurance is missing or expired, and the date if given, using the exact information given.
 Tone: clear, calm, trustworthy, never alarmist — but direct and actionable.`;
 
 Deno.serve(async (req: Request) => {

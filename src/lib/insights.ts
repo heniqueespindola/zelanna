@@ -1,7 +1,9 @@
 import { supabase } from '@/lib/supabase';
 import {
   average,
+  coverageGapSeverity,
   daysUntil,
+  evaluateCoverage,
   isAnomaly,
   isExpiringSoon,
   isRecurringIncrease,
@@ -11,27 +13,30 @@ import {
 } from '@/lib/rulesEngine';
 import { normalizeProvider } from '@/lib/contracts';
 import { fetchBillHistory } from '@/lib/bills';
+import { fetchAssets, fetchCoverageForUser } from '@/lib/coverage';
 import type { Contract } from '@/types/contracts';
 import type { Bill } from '@/types/bills';
+import type { CoverageRecord } from '@/types/coverage';
 import type {
+  AlertsFilter,
   AnomalyInsightData,
+  CoverageGapInsightData,
   Insight,
+  InsightData,
   InsightType,
   PriceIncreaseInsightData,
   RecurringIncreaseInsightData,
   RenewalInsightData,
 } from '@/types/insights';
 
-const INSIGHT_COLUMNS = 'id, user_id, contract_id, bill_id, type, severity, data, message, created_at';
+const INSIGHT_COLUMNS =
+  'id, user_id, contract_id, bill_id, asset_id, coverage_type, type, severity, data, message, resolved_at, created_at';
 export const RENEWAL_THRESHOLD_DAYS = 30;
 const PRICE_INCREASE_THRESHOLD_PERCENT = 10;
 const ANOMALY_WINDOW_MONTHS = 6;
 const RECURRING_INCREASE_PERIODS = 3;
 
-function fallbackMessage(
-  type: InsightType,
-  data: PriceIncreaseInsightData | RenewalInsightData | AnomalyInsightData | RecurringIncreaseInsightData
-): string {
+function fallbackMessage(type: InsightType, data: InsightData): string {
   if (type === 'price_increase') {
     const d = data as PriceIncreaseInsightData;
     return `${d.provider}: price went from €${d.previousAmount} to €${d.currentAmount} (+${d.changePercent.toFixed(1)}%).`;
@@ -44,14 +49,18 @@ function fallbackMessage(
     const d = data as RecurringIncreaseInsightData;
     return `${d.provider}: price has increased for ${d.monthsConsecutive} consecutive billing periods.`;
   }
+  if (type === 'coverage_gap') {
+    const d = data as CoverageGapInsightData;
+    if (d.reason === 'expired') {
+      return `${d.assetName}: ${d.coverageType} coverage expired${d.endDate ? ` on ${d.endDate}` : ''}.`;
+    }
+    return `${d.assetName}: no ${d.coverageType} coverage on record.`;
+  }
   const d = data as RenewalInsightData;
   return `${d.provider} renews in ${d.daysUntilRenewal} days (${d.renewalDate}).`;
 }
 
-async function explainInsight(
-  type: InsightType,
-  data: PriceIncreaseInsightData | RenewalInsightData | AnomalyInsightData | RecurringIncreaseInsightData
-): Promise<string> {
+async function explainInsight(type: InsightType, data: InsightData): Promise<string> {
   const { data: result, error } = await supabase.functions.invoke<{ message: string }>(
     'explain-insight',
     { body: { type, ...data } }
@@ -66,7 +75,7 @@ async function saveInsight(params: {
   billId?: string;
   type: InsightType;
   severity: InsightSeverity;
-  data: PriceIncreaseInsightData | RenewalInsightData | AnomalyInsightData | RecurringIncreaseInsightData;
+  data: InsightData;
 }): Promise<Insight> {
   let message: string;
   try {
@@ -90,6 +99,73 @@ async function saveInsight(params: {
     .single();
   if (error || !data) throw new Error('Could not save insight');
   return data;
+}
+
+async function upsertCoverageGapInsight(params: {
+  userId: string;
+  assetId: string;
+  severity: InsightSeverity;
+  data: CoverageGapInsightData;
+}): Promise<Insight> {
+  let message: string;
+  try {
+    message = await explainInsight('coverage_gap', params.data);
+  } catch {
+    message = fallbackMessage('coverage_gap', params.data);
+  }
+
+  const { data, error } = await supabase
+    .from('insights')
+    .upsert(
+      {
+        user_id: params.userId,
+        asset_id: params.assetId,
+        coverage_type: params.data.coverageType,
+        type: 'coverage_gap' as const,
+        severity: params.severity,
+        data: params.data,
+        message,
+      },
+      { onConflict: 'asset_id,type,coverage_type' }
+    )
+    .select(INSIGHT_COLUMNS)
+    .single();
+  if (error || !data) throw new Error('Could not save coverage gap insight');
+  return data;
+}
+
+export async function generateCoverageGapInsights(userId: string): Promise<Insight[]> {
+  const [assets, coverage] = await Promise.all([fetchAssets(userId), fetchCoverageForUser()]);
+  if (assets.length === 0) return [];
+
+  const coverageByAsset = new Map<string, CoverageRecord[]>();
+  for (const record of coverage) {
+    const list = coverageByAsset.get(record.asset_id) ?? [];
+    list.push(record);
+    coverageByAsset.set(record.asset_id, list);
+  }
+
+  const created: Insight[] = [];
+  for (const asset of assets) {
+    const { gaps } = evaluateCoverage(coverageByAsset.get(asset.id) ?? []);
+    for (const gap of gaps) {
+      const data: CoverageGapInsightData = {
+        assetName: asset.name,
+        coverageType: gap.type,
+        reason: gap.reason,
+        endDate: gap.end_date,
+      };
+      created.push(
+        await upsertCoverageGapInsight({
+          userId,
+          assetId: asset.id,
+          severity: coverageGapSeverity(gap.reason),
+          data,
+        })
+      );
+    }
+  }
+  return created;
 }
 
 export async function generateInsightsForContract(params: {
@@ -236,4 +312,34 @@ export async function fetchUpcomingRenewals(userId: string): Promise<Contract[]>
     .order('renewal_date', { ascending: true });
   if (error) throw new Error('Could not load renewals');
   return (data ?? []).filter((c) => c.renewal_date && isExpiringSoon(c.renewal_date, RENEWAL_THRESHOLD_DAYS));
+}
+
+export async function fetchAllInsights(
+  userId: string,
+  params?: { includeResolved?: boolean }
+): Promise<Insight[]> {
+  let query = supabase
+    .from('insights')
+    .select(INSIGHT_COLUMNS)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (!params?.includeResolved) query = query.is('resolved_at', null);
+  const { data, error } = await query;
+  if (error) throw new Error('Could not load insights');
+  return data ?? [];
+}
+
+export async function resolveInsight(insightId: string): Promise<void> {
+  const { error } = await supabase
+    .from('insights')
+    .update({ resolved_at: new Date().toISOString() })
+    .eq('id', insightId);
+  if (error) throw new Error('Could not resolve insight');
+}
+
+export function filterInsightsByBucket(insights: Insight[], filter: AlertsFilter): Insight[] {
+  if (filter === 'all') return insights;
+  if (filter === 'coverage') return insights.filter((i) => i.type === 'coverage_gap');
+  if (filter === 'bills') return insights.filter((i) => i.bill_id !== null);
+  return insights.filter((i) => i.type === 'renewal');
 }

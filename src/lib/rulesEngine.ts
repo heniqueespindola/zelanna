@@ -59,6 +59,10 @@ export function evaluateCoverage(records: CoverageRecord[], thresholdDays: numbe
   return { primary, gaps };
 }
 
+export function coverageGapSeverity(reason: 'missing' | 'expired'): InsightSeverity {
+  return reason === 'expired' ? 'critical' : 'warning';
+}
+
 export function percentageChange(current: number, previous: number): number {
   return ((current - previous) / previous) * 100;
 }

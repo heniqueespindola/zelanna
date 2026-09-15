@@ -32,6 +32,12 @@ export async function fetchCoverageForAsset(assetId: string): Promise<CoverageRe
   return data ?? [];
 }
 
+export async function fetchCoverageForUser(): Promise<CoverageRecord[]> {
+  const { data, error } = await supabase.from('coverage').select(COVERAGE_COLUMNS);
+  if (error) throw new Error('Could not load coverage');
+  return data ?? [];
+}
+
 export async function fetchDocumentsWithoutAsset(userId: string): Promise<UploadedDocument[]> {
   const { data, error } = await supabase
     .from('documents')

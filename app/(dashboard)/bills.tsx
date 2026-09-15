@@ -11,7 +11,7 @@ import {
   filterBillsByPeriod,
 } from '@/lib/bills';
 import { fetchBillInsights } from '@/lib/insights';
-import { fetchUpcomingBillRenewals, type UpcomingBillRenewal } from '@/lib/events';
+import { fetchUpcomingBillRenewals, type ContractRenewalEvent } from '@/lib/events';
 import { BillGroupCard } from '@/components/bills/BillGroupCard';
 import { PeriodFilter } from '@/components/bills/PeriodFilter';
 import { BillsSummaryCard } from '@/components/bills/BillsSummaryCard';
@@ -26,7 +26,7 @@ export default function BillsScreen() {
   const { user } = useAuth();
   const [bills, setBills] = useState<Bill[] | null>(null);
   const [insights, setInsights] = useState<Insight[] | null>(null);
-  const [renewals, setRenewals] = useState<UpcomingBillRenewal[] | null>(null);
+  const [renewals, setRenewals] = useState<ContractRenewalEvent[] | null>(null);
   const [period, setPeriod] = useState<BillPeriodFilter>('all');
 
   useFocusEffect(

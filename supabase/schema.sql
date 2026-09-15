@@ -178,7 +178,7 @@ create table if not exists public.insights (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.users(id) on delete cascade,
   contract_id uuid references public.contracts(id) on delete cascade,
-  type text not null,        -- 'price_increase' | 'renewal'
+  type text not null,        -- 'price_increase' | 'renewal' | 'anomaly' | 'recurring_increase' | 'coverage_gap'
   severity text not null,    -- 'info' | 'warning' | 'critical'
   data jsonb not null,
   message text not null,
@@ -238,6 +238,19 @@ alter table public.documents
 
 alter table public.insights
   add column if not exists bill_id uuid references public.bills(id) on delete cascade;
+
+alter table public.insights
+  add column if not exists asset_id uuid references public.assets(id) on delete cascade;
+
+alter table public.insights
+  add column if not exists coverage_type text;   -- 'warranty' | 'insurance', só para type='coverage_gap'
+
+alter table public.insights
+  add column if not exists resolved_at timestamptz;
+
+create unique index if not exists insights_coverage_gap_unique
+  on public.insights (asset_id, type, coverage_type)
+  where asset_id is not null;
 
 create table if not exists public.events (
   id uuid default gen_random_uuid() primary key,
