@@ -3,17 +3,17 @@ import { View, Text, StyleSheet } from 'react-native';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { daysUntil } from '@/lib/rulesEngine';
 import { groupEventsByDate } from '@/lib/events';
-import type { ContractRenewalEvent } from '@/lib/events';
+import type { LifeCalendarEntry } from '@/lib/events';
 
 interface Props {
-  entries: ContractRenewalEvent[];
+  entries: LifeCalendarEntry[];
 }
 
 export function LifeCalendar({ entries }: Props) {
   const groups = useMemo(() => groupEventsByDate(entries), [entries]);
 
   if (groups.length === 0) {
-    return <Text style={styles.empty}>No renewals in the next 60 days.</Text>;
+    return <Text style={styles.empty}>Nothing due in the next 60 days.</Text>;
   }
 
   return (
@@ -21,9 +21,13 @@ export function LifeCalendar({ entries }: Props) {
       {groups.map((group) => (
         <View key={group.date} style={styles.group}>
           <Text style={styles.date}>{group.date}</Text>
-          {group.entries.map(({ event, contract }) => (
-            <Text key={event.id} style={styles.row}>
-              {contract.provider} — renews in {daysUntil(event.due_date as string)} days
+          {group.entries.map((entry) => (
+            <Text key={entry.event.id} style={styles.row}>
+              {entry.source === 'contract'
+                ? `${entry.contract.provider} — renews in ${daysUntil(entry.event.due_date as string)} days`
+                : entry.source === 'asset_coverage'
+                  ? `${entry.asset.name} — ${entry.coverageType} expires in ${daysUntil(entry.event.due_date as string)} days`
+                  : `${entry.asset.name} — return window closes in ${daysUntil(entry.event.due_date as string)} days`}
             </Text>
           ))}
         </View>

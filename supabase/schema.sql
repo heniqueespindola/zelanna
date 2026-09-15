@@ -97,6 +97,10 @@ create policy "Users can delete own assets"
   on public.assets for delete
   using (auth.uid() = user_id);
 
+alter table public.assets
+  add column if not exists seller text,
+  add column if not exists return_deadline date;
+
 create table if not exists public.coverage (
   id uuid default gen_random_uuid() primary key,
   asset_id uuid references public.assets(id) on delete cascade,
@@ -136,6 +140,86 @@ create policy "Users can delete own coverage"
   using (exists (
     select 1 from public.assets
     where assets.id = coverage.asset_id and assets.user_id = auth.uid()
+  ));
+
+create table if not exists public.maintenance (
+  id uuid default gen_random_uuid() primary key,
+  asset_id uuid references public.assets(id) on delete cascade,
+  date date,
+  description text,
+  cost numeric,
+  created_at timestamptz not null default now()
+);
+
+alter table public.maintenance enable row level security;
+
+create policy "Users can view own maintenance"
+  on public.maintenance for select
+  using (exists (
+    select 1 from public.assets
+    where assets.id = maintenance.asset_id and assets.user_id = auth.uid()
+  ));
+
+create policy "Users can insert own maintenance"
+  on public.maintenance for insert
+  with check (exists (
+    select 1 from public.assets
+    where assets.id = maintenance.asset_id and assets.user_id = auth.uid()
+  ));
+
+create policy "Users can update own maintenance"
+  on public.maintenance for update
+  using (exists (
+    select 1 from public.assets
+    where assets.id = maintenance.asset_id and assets.user_id = auth.uid()
+  ));
+
+create policy "Users can delete own maintenance"
+  on public.maintenance for delete
+  using (exists (
+    select 1 from public.assets
+    where assets.id = maintenance.asset_id and assets.user_id = auth.uid()
+  ));
+
+create table if not exists public.claims (
+  id uuid default gen_random_uuid() primary key,
+  asset_id uuid references public.assets(id) on delete cascade,
+  coverage_id uuid references public.coverage(id) on delete set null,
+  date date,
+  description text,
+  status text not null default 'open',   -- 'open' | 'approved' | 'denied' | 'resolved'
+  result text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.claims enable row level security;
+
+create policy "Users can view own claims"
+  on public.claims for select
+  using (exists (
+    select 1 from public.assets
+    where assets.id = claims.asset_id and assets.user_id = auth.uid()
+  ));
+
+create policy "Users can insert own claims"
+  on public.claims for insert
+  with check (exists (
+    select 1 from public.assets
+    where assets.id = claims.asset_id and assets.user_id = auth.uid()
+  ));
+
+create policy "Users can update own claims"
+  on public.claims for update
+  using (exists (
+    select 1 from public.assets
+    where assets.id = claims.asset_id and assets.user_id = auth.uid()
+  ));
+
+create policy "Users can delete own claims"
+  on public.claims for delete
+  using (exists (
+    select 1 from public.assets
+    where assets.id = claims.asset_id and assets.user_id = auth.uid()
   ));
 
 alter table public.documents
@@ -178,7 +262,7 @@ create table if not exists public.insights (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.users(id) on delete cascade,
   contract_id uuid references public.contracts(id) on delete cascade,
-  type text not null,        -- 'price_increase' | 'renewal' | 'anomaly' | 'recurring_increase' | 'coverage_gap'
+  type text not null,        -- 'price_increase' | 'renewal' | 'anomaly' | 'recurring_increase' | 'coverage_gap' | 'coverage_expiring' | 'return_deadline'
   severity text not null,    -- 'info' | 'warning' | 'critical'
   data jsonb not null,
   message text not null,
@@ -251,6 +335,10 @@ alter table public.insights
 create unique index if not exists insights_coverage_gap_unique
   on public.insights (asset_id, type, coverage_type)
   where asset_id is not null;
+
+create unique index if not exists insights_asset_scoped_unique
+  on public.insights (asset_id, type)
+  where asset_id is not null and coverage_type is null;
 
 create table if not exists public.events (
   id uuid default gen_random_uuid() primary key,

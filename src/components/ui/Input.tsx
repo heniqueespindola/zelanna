@@ -28,7 +28,7 @@ export function Input({
       <TextInput
         style={[styles.input, error ? styles.inputError : null]}
         value={value}
-        onChangeText={onChangeText}
+        onChangeText={(text) => onChangeText(text.replace(/[‐-―]/g, '-'))}
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}

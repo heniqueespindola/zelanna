@@ -9,6 +9,8 @@ const TYPE_LABELS: Record<InsightType, string> = {
   anomaly: 'Anomaly',
   recurring_increase: 'Recurring increase',
   coverage_gap: 'Coverage gap',
+  coverage_expiring: 'Coverage expiring',
+  return_deadline: 'Return deadline',
 };
 
 interface Props {

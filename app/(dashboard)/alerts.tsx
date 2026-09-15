@@ -6,6 +6,8 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   fetchAllInsights,
   generateCoverageGapInsights,
+  generateCoverageExpiringInsights,
+  generateReturnDeadlineInsights,
   filterInsightsByBucket,
   resolveInsight,
 } from '@/lib/insights';
@@ -14,18 +16,22 @@ import { AlertsFilter } from '@/components/dashboard/AlertsFilter';
 import { LifeCalendar } from '@/components/dashboard/LifeCalendar';
 import { InsightCard } from '@/components/dashboard/InsightCard';
 import type { Insight, AlertsFilter as AlertsFilterValue } from '@/types/insights';
-import type { ContractRenewalEvent } from '@/lib/events';
+import type { LifeCalendarEntry } from '@/lib/events';
 
 export default function AlertsScreen() {
   const { user } = useAuth();
   const [insights, setInsights] = useState<Insight[] | null>(null);
-  const [calendarEntries, setCalendarEntries] = useState<ContractRenewalEvent[] | null>(null);
+  const [calendarEntries, setCalendarEntries] = useState<LifeCalendarEntry[] | null>(null);
   const [filter, setFilter] = useState<AlertsFilterValue>('all');
   const [showResolved, setShowResolved] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
-    await generateCoverageGapInsights(user.id);
+    await Promise.all([
+      generateCoverageGapInsights(user.id),
+      generateCoverageExpiringInsights(user.id),
+      generateReturnDeadlineInsights(user.id),
+    ]);
     const [loadedInsights, loadedEvents] = await Promise.all([
       fetchAllInsights(user.id, { includeResolved: showResolved }),
       fetchLifeCalendarEvents(user.id),

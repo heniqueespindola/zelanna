@@ -43,7 +43,30 @@ interface CoverageGapBody {
   endDate: string | null;
 }
 
-type RequestBody = PriceIncreaseBody | RenewalBody | AnomalyBody | RecurringIncreaseBody | CoverageGapBody;
+interface CoverageExpiringBody {
+  type: 'coverage_expiring';
+  assetName: string;
+  coverageType: 'warranty' | 'insurance' | 'extension';
+  provider: string | null;
+  endDate: string;
+  daysUntilExpiry: number;
+}
+
+interface ReturnDeadlineBody {
+  type: 'return_deadline';
+  assetName: string;
+  returnDeadline: string;
+  daysUntilDeadline: number;
+}
+
+type RequestBody =
+  | PriceIncreaseBody
+  | RenewalBody
+  | AnomalyBody
+  | RecurringIncreaseBody
+  | CoverageGapBody
+  | CoverageExpiringBody
+  | ReturnDeadlineBody;
 
 const EXPLAIN_SYSTEM_PROMPT = `You are writing a short, factual, calm notification for a personal life administration app.
 You will receive numbers that were already calculated by a deterministic rules engine — never recalculate or invent any number.
@@ -53,6 +76,8 @@ For "renewal": state the provider and how many days until renewal, using the exa
 For "anomaly": state the provider (and category, if given) and how much the current amount is above the average for the period, using the exact numbers given.
 For "recurring_increase": state the provider (and category, if given) and that the price has increased for the given number of consecutive billing periods, using the exact number given.
 For "coverage_gap": state the asset name, whether the warranty or insurance is missing or expired, and the date if given, using the exact information given.
+For "coverage_expiring": state the asset name, the coverage type (warranty, insurance or extension) and how many days until it expires, using the exact numbers given.
+For "return_deadline": state the asset name and how many days remain to return it, using the exact numbers given.
 Tone: clear, calm, trustworthy, never alarmist — but direct and actionable.`;
 
 Deno.serve(async (req: Request) => {

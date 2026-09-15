@@ -63,6 +63,10 @@ export function coverageGapSeverity(reason: 'missing' | 'expired'): InsightSever
   return reason === 'expired' ? 'critical' : 'warning';
 }
 
+export function expiringSeverity(daysUntilDue: number): InsightSeverity {
+  return daysUntilDue <= 7 ? 'critical' : 'warning';
+}
+
 export function percentageChange(current: number, previous: number): number {
   return ((current - previous) / previous) * 100;
 }

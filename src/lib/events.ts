@@ -1,9 +1,12 @@
 import { supabase } from '@/lib/supabase';
-import { isExpiringSoon } from '@/lib/rulesEngine';
+import { evaluateCoverage, isExpiringSoon } from '@/lib/rulesEngine';
 import { fetchContracts } from '@/lib/contracts';
+import { fetchAssets, fetchCoverageForUser } from '@/lib/coverage';
 import { RENEWAL_THRESHOLD_DAYS } from '@/lib/insights';
 import type { Contract } from '@/types/contracts';
 import type { LifeEvent } from '@/types/events';
+import type { Asset } from '@/types/assets';
+import type { CoverageRecord, CoverageType } from '@/types/coverage';
 
 const EVENT_COLUMNS = 'id, user_id, type, due_date, source_id, created_at';
 const BILLS_RELEVANT_CONTRACT_TYPES = ['insurance', 'utility'] as const;
@@ -53,20 +56,90 @@ export async function fetchUpcomingBillRenewals(userId: string): Promise<Contrac
   return joinEventsWithContracts(events, contracts);
 }
 
+export async function syncAssetLifeEvents(
+  userId: string,
+  assets: Asset[],
+  coverageByAsset: Map<string, CoverageRecord[]>
+): Promise<void> {
+  const rows: { user_id: string; type: 'expiry' | 'deadline'; due_date: string; source_id: string }[] = [];
+  for (const asset of assets) {
+    const { primary } = evaluateCoverage(coverageByAsset.get(asset.id) ?? []);
+    if (primary && primary.status === 'expiring_soon' && primary.end_date) {
+      rows.push({ user_id: userId, type: 'expiry', due_date: primary.end_date, source_id: asset.id });
+    }
+    if (asset.return_deadline && isExpiringSoon(asset.return_deadline)) {
+      rows.push({ user_id: userId, type: 'deadline', due_date: asset.return_deadline, source_id: asset.id });
+    }
+  }
+  if (rows.length === 0) return;
+  const { error } = await supabase.from('events').upsert(rows, { onConflict: 'source_id,type' });
+  if (error) throw new Error('Could not sync asset life events');
+}
+
+export type LifeCalendarEntry =
+  | { event: LifeEvent; source: 'contract'; contract: Contract }
+  | { event: LifeEvent; source: 'asset_coverage'; asset: Asset; coverageType: CoverageType }
+  | { event: LifeEvent; source: 'asset_return_deadline'; asset: Asset };
+
+export function joinLifeCalendarEvents(
+  events: LifeEvent[],
+  contracts: Contract[],
+  assets: Asset[],
+  coverageByAsset: Map<string, CoverageRecord[]>
+): LifeCalendarEntry[] {
+  const contractsById = new Map(contracts.map((c) => [c.id, c]));
+  const assetsById = new Map(assets.map((a) => [a.id, a]));
+  const entries: LifeCalendarEntry[] = [];
+
+  for (const event of events) {
+    if (event.type === 'renewal' && event.source_id !== null) {
+      const contract = contractsById.get(event.source_id);
+      if (contract) entries.push({ event, source: 'contract', contract });
+      continue;
+    }
+    if (event.type === 'expiry' && event.source_id !== null) {
+      const asset = assetsById.get(event.source_id);
+      if (!asset) continue;
+      const { primary } = evaluateCoverage(coverageByAsset.get(asset.id) ?? []);
+      if (primary) entries.push({ event, source: 'asset_coverage', asset, coverageType: primary.type });
+      continue;
+    }
+    if (event.type === 'deadline' && event.source_id !== null) {
+      const asset = assetsById.get(event.source_id);
+      if (asset) entries.push({ event, source: 'asset_return_deadline', asset });
+    }
+  }
+
+  return entries;
+}
+
 export async function fetchLifeCalendarEvents(
   userId: string,
   windowDays: number = LIFE_CALENDAR_WINDOW_DAYS
-): Promise<ContractRenewalEvent[]> {
-  const contracts = (await fetchContracts(userId)).filter((c) => c.renewal_date !== null);
-  await syncRenewalEvents(userId, contracts);
+): Promise<LifeCalendarEntry[]> {
+  const [contracts, assets, coverage] = await Promise.all([
+    fetchContracts(userId).then((cs) => cs.filter((c) => c.renewal_date !== null)),
+    fetchAssets(userId),
+    fetchCoverageForUser(),
+  ]);
+  const coverageByAsset = new Map<string, CoverageRecord[]>();
+  for (const record of coverage) {
+    const list = coverageByAsset.get(record.asset_id) ?? [];
+    list.push(record);
+    coverageByAsset.set(record.asset_id, list);
+  }
+  await Promise.all([
+    syncRenewalEvents(userId, contracts),
+    syncAssetLifeEvents(userId, assets, coverageByAsset),
+  ]);
   const events = await fetchUpcomingEvents(userId, windowDays);
-  return joinEventsWithContracts(events, contracts);
+  return joinLifeCalendarEvents(events, contracts, assets, coverageByAsset);
 }
 
 export function groupEventsByDate(
-  entries: ContractRenewalEvent[]
-): { date: string; entries: ContractRenewalEvent[] }[] {
-  const map = new Map<string, ContractRenewalEvent[]>();
+  entries: LifeCalendarEntry[]
+): { date: string; entries: LifeCalendarEntry[] }[] {
+  const map = new Map<string, LifeCalendarEntry[]>();
   for (const entry of entries) {
     const date = entry.event.due_date as string;
     const list = map.get(date) ?? [];

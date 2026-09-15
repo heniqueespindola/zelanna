@@ -1,6 +1,13 @@
 import type { InsightSeverity } from '@/lib/rulesEngine';
 
-export type InsightType = 'price_increase' | 'renewal' | 'anomaly' | 'recurring_increase' | 'coverage_gap';
+export type InsightType =
+  | 'price_increase'
+  | 'renewal'
+  | 'anomaly'
+  | 'recurring_increase'
+  | 'coverage_gap'
+  | 'coverage_expiring'
+  | 'return_deadline';
 
 export interface PriceIncreaseInsightData {
   provider: string;
@@ -40,12 +47,28 @@ export interface CoverageGapInsightData {
   endDate: string | null;
 }
 
+export interface CoverageExpiringInsightData {
+  assetName: string;
+  coverageType: 'warranty' | 'insurance' | 'extension';
+  provider: string | null;
+  endDate: string;
+  daysUntilExpiry: number;
+}
+
+export interface ReturnDeadlineInsightData {
+  assetName: string;
+  returnDeadline: string;
+  daysUntilDeadline: number;
+}
+
 export type InsightData =
   | PriceIncreaseInsightData
   | RenewalInsightData
   | AnomalyInsightData
   | RecurringIncreaseInsightData
-  | CoverageGapInsightData;
+  | CoverageGapInsightData
+  | CoverageExpiringInsightData
+  | ReturnDeadlineInsightData;
 
 export interface Insight {
   id: string;
@@ -53,7 +76,7 @@ export interface Insight {
   contract_id: string | null;
   bill_id: string | null;
   asset_id: string | null;
-  coverage_type: 'warranty' | 'insurance' | null;
+  coverage_type: 'warranty' | 'insurance' | 'extension' | null;
   type: InsightType;
   severity: InsightSeverity;
   data: InsightData;

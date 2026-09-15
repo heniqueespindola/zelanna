@@ -4,6 +4,7 @@ import {
   coverageGapSeverity,
   daysUntil,
   evaluateCoverage,
+  expiringSeverity,
   isAnomaly,
   isExpiringSoon,
   isRecurringIncrease,
@@ -20,6 +21,7 @@ import type { CoverageRecord } from '@/types/coverage';
 import type {
   AlertsFilter,
   AnomalyInsightData,
+  CoverageExpiringInsightData,
   CoverageGapInsightData,
   Insight,
   InsightData,
@@ -27,6 +29,7 @@ import type {
   PriceIncreaseInsightData,
   RecurringIncreaseInsightData,
   RenewalInsightData,
+  ReturnDeadlineInsightData,
 } from '@/types/insights';
 
 const INSIGHT_COLUMNS =
@@ -55,6 +58,14 @@ function fallbackMessage(type: InsightType, data: InsightData): string {
       return `${d.assetName}: ${d.coverageType} coverage expired${d.endDate ? ` on ${d.endDate}` : ''}.`;
     }
     return `${d.assetName}: no ${d.coverageType} coverage on record.`;
+  }
+  if (type === 'coverage_expiring') {
+    const d = data as CoverageExpiringInsightData;
+    return `${d.assetName}: ${d.coverageType} coverage expires in ${d.daysUntilExpiry} days (${d.endDate}).`;
+  }
+  if (type === 'return_deadline') {
+    const d = data as ReturnDeadlineInsightData;
+    return `${d.assetName}: return window closes in ${d.daysUntilDeadline} days (${d.returnDeadline}).`;
   }
   const d = data as RenewalInsightData;
   return `${d.provider} renews in ${d.daysUntilRenewal} days (${d.renewalDate}).`;
@@ -168,6 +179,103 @@ export async function generateCoverageGapInsights(userId: string): Promise<Insig
   return created;
 }
 
+async function upsertAssetScopedInsight(params: {
+  userId: string;
+  assetId: string;
+  type: 'coverage_expiring' | 'return_deadline';
+  coverageType?: 'warranty' | 'insurance' | 'extension';
+  severity: InsightSeverity;
+  data: InsightData;
+}): Promise<Insight> {
+  let message: string;
+  try {
+    message = await explainInsight(params.type, params.data);
+  } catch {
+    message = fallbackMessage(params.type, params.data);
+  }
+
+  const onConflict = params.coverageType ? 'asset_id,type,coverage_type' : 'asset_id,type';
+  const { data, error } = await supabase
+    .from('insights')
+    .upsert(
+      {
+        user_id: params.userId,
+        asset_id: params.assetId,
+        coverage_type: params.coverageType ?? null,
+        type: params.type,
+        severity: params.severity,
+        data: params.data,
+        message,
+      },
+      { onConflict }
+    )
+    .select(INSIGHT_COLUMNS)
+    .single();
+  if (error || !data) throw new Error(`Could not save ${params.type} insight`);
+  return data;
+}
+
+export async function generateCoverageExpiringInsights(userId: string): Promise<Insight[]> {
+  const [assets, coverage] = await Promise.all([fetchAssets(userId), fetchCoverageForUser()]);
+  if (assets.length === 0) return [];
+
+  const coverageByAsset = new Map<string, CoverageRecord[]>();
+  for (const record of coverage) {
+    const list = coverageByAsset.get(record.asset_id) ?? [];
+    list.push(record);
+    coverageByAsset.set(record.asset_id, list);
+  }
+
+  const created: Insight[] = [];
+  for (const asset of assets) {
+    const { primary } = evaluateCoverage(coverageByAsset.get(asset.id) ?? []);
+    if (!primary || primary.status !== 'expiring_soon' || !primary.end_date) continue;
+    const days = daysUntil(primary.end_date);
+    const data: CoverageExpiringInsightData = {
+      assetName: asset.name,
+      coverageType: primary.type,
+      provider: primary.provider,
+      endDate: primary.end_date,
+      daysUntilExpiry: days,
+    };
+    created.push(
+      await upsertAssetScopedInsight({
+        userId,
+        assetId: asset.id,
+        type: 'coverage_expiring',
+        coverageType: primary.type,
+        severity: expiringSeverity(days),
+        data,
+      })
+    );
+  }
+  return created;
+}
+
+export async function generateReturnDeadlineInsights(userId: string): Promise<Insight[]> {
+  const assets = await fetchAssets(userId);
+  const created: Insight[] = [];
+  for (const asset of assets) {
+    if (!asset.return_deadline || !isExpiringSoon(asset.return_deadline, RENEWAL_THRESHOLD_DAYS)) continue;
+    const days = daysUntil(asset.return_deadline);
+    const data: ReturnDeadlineInsightData = {
+      assetName: asset.name,
+      returnDeadline: asset.return_deadline,
+      daysUntilDeadline: days,
+    };
+    created.push(
+      await upsertAssetScopedInsight({
+        userId,
+        assetId: asset.id,
+        type: 'return_deadline',
+        severity: expiringSeverity(days),
+        data,
+      })
+    );
+  }
+  return created;
+}
+
 export async function generateInsightsForContract(params: {
   userId: string;
   contract: Contract;
@@ -205,7 +313,7 @@ export async function generateInsightsForContract(params: {
         userId,
         contractId: contract.id,
         type: 'renewal',
-        severity: days <= 7 ? 'critical' : 'warning',
+        severity: expiringSeverity(days),
         data,
       })
     );
@@ -339,7 +447,10 @@ export async function resolveInsight(insightId: string): Promise<void> {
 
 export function filterInsightsByBucket(insights: Insight[], filter: AlertsFilter): Insight[] {
   if (filter === 'all') return insights;
-  if (filter === 'coverage') return insights.filter((i) => i.type === 'coverage_gap');
+  if (filter === 'coverage')
+    return insights.filter(
+      (i) => i.type === 'coverage_gap' || i.type === 'coverage_expiring' || i.type === 'return_deadline'
+    );
   if (filter === 'bills') return insights.filter((i) => i.bill_id !== null);
   return insights.filter((i) => i.type === 'renewal');
 }
