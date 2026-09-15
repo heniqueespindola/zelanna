@@ -43,6 +43,12 @@
           "photosPermission": "Zelanna needs access to your photos to let you upload documents like invoices, warranties and insurance policies.",
           "cameraPermission": "Zelanna needs access to your camera to let you photograph documents like invoices, warranties and insurance policies."
         }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.945578552610-bqli8eint082t4d17mhlbe4e1d9i2r0a"
+        }
       ]
     ]
   }

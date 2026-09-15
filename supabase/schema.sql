@@ -279,3 +279,54 @@ create policy "Users can update own events"
 create policy "Users can delete own events"
   on public.events for delete
   using (auth.uid() = user_id);
+
+create table if not exists public.gmail_connections (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.users(id) on delete cascade unique,
+  google_email text not null,
+  access_token text,       -- null depois de disconnect (ver gmail-disconnect/index.ts)
+  refresh_token text,      -- null depois de disconnect (ver gmail-disconnect/index.ts)
+  scope text not null,
+  token_expires_at timestamptz not null,
+  last_synced_at timestamptz,
+  status text not null default 'active',   -- 'active' | 'revoked'
+  connected_at timestamptz not null default now(),
+  revoked_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+-- RLS activo e SEM policies para anon/authenticated: só o service_role
+-- (usado dentro das Edge Functions gmail-connect/disconnect/status/sync)
+-- pode ler ou escrever tokens. O cliente nunca lê esta tabela directamente
+-- (ver gmail-status/index.ts) — decisão tomada em /plan, CLAUDE.md > Segurança > least privilege.
+alter table public.gmail_connections enable row level security;
+
+create table if not exists public.gmail_import_items (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.users(id) on delete cascade,
+  gmail_message_id text not null,
+  gmail_attachment_id text not null,
+  document_path text,
+  mime_type text,
+  extracted_data jsonb,
+  status text not null default 'processing',  -- 'processing' | 'pending_review' | 'imported' | 'skipped' | 'duplicate_content' | 'failed'
+  document_id uuid references public.documents(id) on delete set null,
+  created_at timestamptz not null default now(),
+  reviewed_at timestamptz,
+  constraint gmail_import_items_message_attachment_unique unique (user_id, gmail_message_id, gmail_attachment_id)
+);
+
+alter table public.gmail_import_items enable row level security;
+
+create index if not exists gmail_import_items_user_status_idx
+  on public.gmail_import_items (user_id, status);
+
+-- Cliente só vê/actualiza os seus próprios itens (para reveer e marcar
+-- imported/skipped); nunca insere (só gmail-sync insere, via service_role).
+create policy "Users can view own gmail import items"
+  on public.gmail_import_items for select
+  using (auth.uid() = user_id);
+
+create policy "Users can update own gmail import items"
+  on public.gmail_import_items for update
+  using (auth.uid() = user_id);

@@ -2,6 +2,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
+import { GmailConnectionCard } from '@/components/settings/GmailConnectionCard';
 
 export default function SettingsScreen() {
   const { signOut } = useAuth();
@@ -10,6 +11,8 @@ export default function SettingsScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Settings</Text>
       <Text style={styles.subtitle}>Profile, plan and privacy.</Text>
+
+      <GmailConnectionCard />
 
       {/* TODO: perfil, plano (Stripe), privacidade */}
 
