@@ -27,7 +27,15 @@ interface AnomalyBody {
   periodMonths: number;
 }
 
-type RequestBody = PriceIncreaseBody | RenewalBody | AnomalyBody;
+interface RecurringIncreaseBody {
+  type: 'recurring_increase';
+  provider: string;
+  category: string | null;
+  monthsConsecutive: number;
+  amounts: number[];
+}
+
+type RequestBody = PriceIncreaseBody | RenewalBody | AnomalyBody | RecurringIncreaseBody;
 
 const EXPLAIN_SYSTEM_PROMPT = `You are writing a short, factual, calm notification for a personal life administration app.
 You will receive numbers that were already calculated by a deterministic rules engine — never recalculate or invent any number.
@@ -35,6 +43,7 @@ Respond with ONLY one short sentence in English, no JSON, no markdown, no prose 
 For "price_increase": state the provider and the percentage increase, using the exact numbers given.
 For "renewal": state the provider and how many days until renewal, using the exact numbers given.
 For "anomaly": state the provider (and category, if given) and how much the current amount is above the average for the period, using the exact numbers given.
+For "recurring_increase": state the provider (and category, if given) and that the price has increased for the given number of consecutive billing periods, using the exact number given.
 Tone: clear, calm, trustworthy, never alarmist — but direct and actionable.`;
 
 Deno.serve(async (req: Request) => {

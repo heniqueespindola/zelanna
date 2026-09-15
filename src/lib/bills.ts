@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { normalizeProvider } from '@/lib/contracts';
-import { average, percentageChange } from '@/lib/rulesEngine';
-import type { Bill, BillCategory, BillingPeriod } from '@/types/bills';
+import { average, percentageChange, monthlyEquivalent, annualEquivalent } from '@/lib/rulesEngine';
+import type { Bill, BillCategory, BillingPeriod, BillPeriodFilter } from '@/types/bills';
 
 const BILL_COLUMNS = 'id, user_id, provider, category, invoice_date, billing_period, amount, created_at';
 
@@ -83,5 +83,46 @@ export function groupBills(bills: Bill[]): BillGroup[] {
     const average6 = amounts.length >= 6 ? average(amounts.slice(0, 6)) : null;
     const average12 = amounts.length >= 12 ? average(amounts.slice(0, 12)) : null;
     return { ...group, latestChangePercent, average6, average12 };
+  });
+}
+
+export function calculateBillTotals(groups: BillGroup[]): { monthlyTotal: number; annualTotal: number } {
+  let monthlyTotal = 0;
+  let annualTotal = 0;
+  for (const group of groups) {
+    const latest = group.bills[0];
+    if (latest.amount === null) continue;
+    monthlyTotal += monthlyEquivalent(latest.amount, latest.billing_period);
+    annualTotal += annualEquivalent(latest.amount, latest.billing_period);
+  }
+  return { monthlyTotal, annualTotal };
+}
+
+export interface CategoryTotal {
+  category: BillCategory;
+  monthlyTotal: number;
+}
+
+export function calculateCategoryTotals(groups: BillGroup[]): CategoryTotal[] {
+  const map = new Map<BillCategory, number>();
+  for (const group of groups) {
+    const latest = group.bills[0];
+    if (latest.amount === null) continue;
+    const value = monthlyEquivalent(latest.amount, latest.billing_period);
+    map.set(group.category, (map.get(group.category) ?? 0) + value);
+  }
+  return Array.from(map.entries()).map(([category, monthlyTotal]) => ({ category, monthlyTotal }));
+}
+
+export function filterBillsByPeriod(bills: Bill[], period: BillPeriodFilter, now: Date = new Date()): Bill[] {
+  if (period === 'all') return bills;
+  const rangeStart = new Date(now);
+  if (period === 'month') rangeStart.setMonth(rangeStart.getMonth() - 1);
+  else if (period === 'quarter') rangeStart.setMonth(rangeStart.getMonth() - 3);
+  else rangeStart.setFullYear(rangeStart.getFullYear() - 1);
+  return bills.filter((b) => {
+    if (!b.invoice_date) return false;
+    const invoiceDate = new Date(b.invoice_date);
+    return invoiceDate >= rangeStart && invoiceDate <= now;
   });
 }

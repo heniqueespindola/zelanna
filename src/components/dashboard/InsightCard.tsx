@@ -7,6 +7,7 @@ const TYPE_LABELS: Record<InsightType, string> = {
   price_increase: 'Price increase',
   renewal: 'Renewal',
   anomaly: 'Anomaly',
+  recurring_increase: 'Recurring increase',
 };
 
 interface Props {

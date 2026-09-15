@@ -1,6 +1,6 @@
 import type { InsightSeverity } from '@/lib/rulesEngine';
 
-export type InsightType = 'price_increase' | 'renewal' | 'anomaly';
+export type InsightType = 'price_increase' | 'renewal' | 'anomaly' | 'recurring_increase';
 
 export interface PriceIncreaseInsightData {
   provider: string;
@@ -26,6 +26,13 @@ export interface AnomalyInsightData {
   periodMonths: number;
 }
 
+export interface RecurringIncreaseInsightData {
+  provider: string;
+  category: string | null;
+  monthsConsecutive: number;
+  amounts: number[]; // mais recente primeiro, length = monthsConsecutive
+}
+
 export interface Insight {
   id: string;
   user_id: string;
@@ -33,7 +40,7 @@ export interface Insight {
   bill_id: string | null;
   type: InsightType;
   severity: InsightSeverity;
-  data: PriceIncreaseInsightData | RenewalInsightData | AnomalyInsightData;
+  data: PriceIncreaseInsightData | RenewalInsightData | AnomalyInsightData | RecurringIncreaseInsightData;
   message: string;
   created_at: string;
 }

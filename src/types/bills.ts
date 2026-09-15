@@ -9,6 +9,8 @@ export type BillCategory =
 
 export type BillingPeriod = 'monthly' | 'bimonthly' | 'yearly';
 
+export type BillPeriodFilter = 'month' | 'quarter' | 'year' | 'all';
+
 export interface Bill {
   id: string;
   user_id: string;

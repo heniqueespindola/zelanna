@@ -1,5 +1,6 @@
 import type { ExtractedDocumentData } from '@/types/documents';
 import type { CoverageRecord, CoverageType } from '@/types/coverage';
+import type { BillingPeriod } from '@/types/bills';
 
 export function daysUntil(dateISO: string, from: Date = new Date()): number {
   const target = new Date(dateISO);
@@ -76,6 +77,26 @@ export function isAnomaly(current: number, average: number, thresholdPercent: nu
 
 export function average(values: number[]): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+export function monthlyEquivalent(amount: number, billingPeriod: BillingPeriod | null): number {
+  if (billingPeriod === 'yearly') return amount / 12;
+  if (billingPeriod === 'bimonthly') return amount / 2;
+  return amount; // 'monthly' ou null assume mensal
+}
+
+export function annualEquivalent(amount: number, billingPeriod: BillingPeriod | null): number {
+  if (billingPeriod === 'yearly') return amount;
+  if (billingPeriod === 'bimonthly') return amount * 6;
+  return amount * 12; // 'monthly' ou null assume mensal
+}
+
+export function isRecurringIncrease(amountsDesc: number[], consecutivePeriods: number = 3): boolean {
+  if (amountsDesc.length < consecutivePeriods) return false;
+  for (let i = 0; i < consecutivePeriods - 1; i++) {
+    if (amountsDesc[i] <= amountsDesc[i + 1]) return false;
+  }
+  return true;
 }
 
 export type InsightSeverity = 'info' | 'warning' | 'critical';

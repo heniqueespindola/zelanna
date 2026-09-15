@@ -4,6 +4,7 @@ import {
   daysUntil,
   isAnomaly,
   isExpiringSoon,
+  isRecurringIncrease,
   isSignificantIncrease,
   percentageChange,
   type InsightSeverity,
@@ -17,17 +18,19 @@ import type {
   Insight,
   InsightType,
   PriceIncreaseInsightData,
+  RecurringIncreaseInsightData,
   RenewalInsightData,
 } from '@/types/insights';
 
 const INSIGHT_COLUMNS = 'id, user_id, contract_id, bill_id, type, severity, data, message, created_at';
-const RENEWAL_THRESHOLD_DAYS = 30;
+export const RENEWAL_THRESHOLD_DAYS = 30;
 const PRICE_INCREASE_THRESHOLD_PERCENT = 10;
 const ANOMALY_WINDOW_MONTHS = 6;
+const RECURRING_INCREASE_PERIODS = 3;
 
 function fallbackMessage(
   type: InsightType,
-  data: PriceIncreaseInsightData | RenewalInsightData | AnomalyInsightData
+  data: PriceIncreaseInsightData | RenewalInsightData | AnomalyInsightData | RecurringIncreaseInsightData
 ): string {
   if (type === 'price_increase') {
     const d = data as PriceIncreaseInsightData;
@@ -37,13 +40,17 @@ function fallbackMessage(
     const d = data as AnomalyInsightData;
     return `${d.provider}: paid €${d.currentAmount.toFixed(2)}, ${d.deviationPercent.toFixed(1)}% above your ${d.periodMonths}-month average of €${d.averageAmount.toFixed(2)}.`;
   }
+  if (type === 'recurring_increase') {
+    const d = data as RecurringIncreaseInsightData;
+    return `${d.provider}: price has increased for ${d.monthsConsecutive} consecutive billing periods.`;
+  }
   const d = data as RenewalInsightData;
   return `${d.provider} renews in ${d.daysUntilRenewal} days (${d.renewalDate}).`;
 }
 
 async function explainInsight(
   type: InsightType,
-  data: PriceIncreaseInsightData | RenewalInsightData | AnomalyInsightData
+  data: PriceIncreaseInsightData | RenewalInsightData | AnomalyInsightData | RecurringIncreaseInsightData
 ): Promise<string> {
   const { data: result, error } = await supabase.functions.invoke<{ message: string }>(
     'explain-insight',
@@ -59,7 +66,7 @@ async function saveInsight(params: {
   billId?: string;
   type: InsightType;
   severity: InsightSeverity;
-  data: PriceIncreaseInsightData | RenewalInsightData | AnomalyInsightData;
+  data: PriceIncreaseInsightData | RenewalInsightData | AnomalyInsightData | RecurringIncreaseInsightData;
 }): Promise<Insight> {
   let message: string;
   try {
@@ -179,6 +186,21 @@ export async function generateInsightsForBill(params: { userId: string; bill: Bi
     }
   }
 
+  const recentAmounts = [bill.amount, ...priorBills.map((b) => b.amount)].filter(
+    (a): a is number => a !== null
+  );
+  if (isRecurringIncrease(recentAmounts, RECURRING_INCREASE_PERIODS)) {
+    const data: RecurringIncreaseInsightData = {
+      provider: bill.provider,
+      category: bill.category,
+      monthsConsecutive: RECURRING_INCREASE_PERIODS,
+      amounts: recentAmounts.slice(0, RECURRING_INCREASE_PERIODS),
+    };
+    created.push(
+      await saveInsight({ userId, billId: bill.id, type: 'recurring_increase', severity: 'warning', data })
+    );
+  }
+
   return created;
 }
 
@@ -190,6 +212,18 @@ export async function fetchRecentInsights(userId: string, limit: number = 5): Pr
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw new Error('Could not load insights');
+  return data ?? [];
+}
+
+export async function fetchBillInsights(userId: string, limit: number = 10): Promise<Insight[]> {
+  const { data, error } = await supabase
+    .from('insights')
+    .select(INSIGHT_COLUMNS)
+    .eq('user_id', userId)
+    .not('bill_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw new Error('Could not load bill insights');
   return data ?? [];
 }
 
