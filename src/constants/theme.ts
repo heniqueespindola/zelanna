@@ -19,6 +19,7 @@ export const colors = {
   info: '#5B685F',
   warning: '#C9A15C',
   critical: '#A3402E',
+  success: '#4A7856',
 } as const;
 
 // Avenir e Lato não vêm com o Expo — adicionar os .ttf a src/assets/fonts/

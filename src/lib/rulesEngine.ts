@@ -1,4 +1,5 @@
 import type { ExtractedDocumentData } from '@/types/documents';
+import type { CoverageRecord, CoverageType } from '@/types/coverage';
 
 export function daysUntil(dateISO: string, from: Date = new Date()): number {
   const target = new Date(dateISO);
@@ -9,6 +10,52 @@ export function daysUntil(dateISO: string, from: Date = new Date()): number {
 export function isExpiringSoon(dateISO: string, thresholdDays: number = 30): boolean {
   const days = daysUntil(dateISO);
   return days >= 0 && days <= thresholdDays;
+}
+
+export type CoverageStatus = 'active' | 'expiring_soon' | 'expired';
+
+export function getCoverageStatus(endDateISO: string | null, thresholdDays: number = 30): CoverageStatus {
+  if (!endDateISO) return 'active';
+  const days = daysUntil(endDateISO);
+  if (days < 0) return 'expired';
+  if (days <= thresholdDays) return 'expiring_soon';
+  return 'active';
+}
+
+const COVERAGE_TYPE_RANK: Record<CoverageType, number> = { extension: 3, insurance: 2, warranty: 1 };
+
+export interface CoverageEvaluation {
+  primary: (CoverageRecord & { type: CoverageType; status: CoverageStatus }) | null;
+  gaps: { type: 'warranty' | 'insurance'; reason: 'missing' | 'expired'; end_date: string | null }[];
+}
+
+export function evaluateCoverage(records: CoverageRecord[], thresholdDays: number = 30): CoverageEvaluation {
+  const withStatus = records
+    .filter((r): r is CoverageRecord & { type: CoverageType } => r.type !== null)
+    .map((r) => ({ ...r, status: getCoverageStatus(r.end_date, thresholdDays) }));
+
+  const inForce = withStatus.filter((r) => r.status !== 'expired');
+
+  const primary = inForce.length
+    ? [...inForce].sort((a, b) => {
+        const rank = COVERAGE_TYPE_RANK[b.type] - COVERAGE_TYPE_RANK[a.type];
+        if (rank !== 0) return rank;
+        const aTime = a.end_date ? new Date(a.end_date).getTime() : Infinity;
+        const bTime = b.end_date ? new Date(b.end_date).getTime() : Infinity;
+        return bTime - aTime;
+      })[0]
+    : null;
+
+  const gaps: CoverageEvaluation['gaps'] = [];
+  for (const type of ['warranty', 'insurance'] as const) {
+    const recordsOfType = withStatus.filter((r) => r.type === type);
+    const hasInForce = recordsOfType.some((r) => r.status !== 'expired');
+    if (hasInForce) continue;
+    const mostRecentExpired = recordsOfType[0] ?? null;
+    gaps.push({ type, reason: mostRecentExpired ? 'expired' : 'missing', end_date: mostRecentExpired?.end_date ?? null });
+  }
+
+  return { primary, gaps };
 }
 
 export function percentageChange(current: number, previous: number): number {

@@ -33,12 +33,14 @@ export function OnboardingProvider({ children }: PropsWithChildren) {
       return;
     }
 
+    Promise.resolve().then(() => setLoading(true));
     supabase
       .from('users')
       .select('onboarding_completed')
       .eq('id', userId)
       .single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) console.error('Failed to load onboarding status', error);
         setOnboardingCompleted(data?.onboarding_completed ?? false);
         setLoading(false);
       });

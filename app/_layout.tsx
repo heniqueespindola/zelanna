@@ -24,7 +24,7 @@ function RootNavigator() {
       <Stack.Protected guard={!!session && onboardingCompleted === false}>
         <Stack.Screen name="onboarding" />
       </Stack.Protected>
-      <Stack.Protected guard={!session}>
+      <Stack.Protected guard={!session || onboardingCompleted === null}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
     </Stack>

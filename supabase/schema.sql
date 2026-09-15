@@ -65,3 +65,78 @@ create policy "Users can update own documents"
 create policy "Users can delete own documents"
   on public.documents for delete
   using (auth.uid() = user_id);
+
+create table if not exists public.assets (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.users(id) on delete cascade,
+  name text not null,
+  category text,             -- 'electronics' | 'vehicle' | 'appliance' | 'other'
+  brand text,
+  model text,
+  serial_number text,
+  purchase_date date,
+  purchase_price numeric,
+  created_at timestamptz not null default now()
+);
+
+alter table public.assets enable row level security;
+
+create policy "Users can view own assets"
+  on public.assets for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own assets"
+  on public.assets for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own assets"
+  on public.assets for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own assets"
+  on public.assets for delete
+  using (auth.uid() = user_id);
+
+create table if not exists public.coverage (
+  id uuid default gen_random_uuid() primary key,
+  asset_id uuid references public.assets(id) on delete cascade,
+  type text,                 -- 'warranty' | 'insurance' | 'extension'
+  provider text,
+  start_date date,
+  end_date date,
+  status text,               -- não usado pela app (calculado em runtime, ver rulesEngine.ts)
+  created_at timestamptz not null default now()
+);
+
+alter table public.coverage enable row level security;
+
+create policy "Users can view own coverage"
+  on public.coverage for select
+  using (exists (
+    select 1 from public.assets
+    where assets.id = coverage.asset_id and assets.user_id = auth.uid()
+  ));
+
+create policy "Users can insert own coverage"
+  on public.coverage for insert
+  with check (exists (
+    select 1 from public.assets
+    where assets.id = coverage.asset_id and assets.user_id = auth.uid()
+  ));
+
+create policy "Users can update own coverage"
+  on public.coverage for update
+  using (exists (
+    select 1 from public.assets
+    where assets.id = coverage.asset_id and assets.user_id = auth.uid()
+  ));
+
+create policy "Users can delete own coverage"
+  on public.coverage for delete
+  using (exists (
+    select 1 from public.assets
+    where assets.id = coverage.asset_id and assets.user_id = auth.uid()
+  ));
+
+alter table public.documents
+  add column if not exists asset_id uuid references public.assets(id) on delete set null;
