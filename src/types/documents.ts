@@ -1,3 +1,5 @@
+import type { BillCategory } from '@/types/bills';
+
 export type DocumentType = 'invoice' | 'warranty' | 'insurance' | 'contract' | 'receipt';
 
 export interface ExtractedDocumentData {
@@ -6,6 +8,7 @@ export interface ExtractedDocumentData {
   date: string | null;
   amount: number | null;
   expiry_date: string | null;
+  category: BillCategory | null;
 }
 
 export interface ExtractionResult {
@@ -18,6 +21,7 @@ export interface UploadedDocument {
   id: string;
   asset_id: string | null;
   contract_id: string | null;
+  bill_id: string | null;
   file_url: string;
   document_type: DocumentType | null;
   provider: string | null;

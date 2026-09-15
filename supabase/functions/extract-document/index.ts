@@ -11,6 +11,7 @@ interface ExtractedDocumentData {
   date: string | null;
   amount: number | null;
   expiry_date: string | null;
+  category: 'water' | 'electricity' | 'gas' | 'internet' | 'mobile' | 'landline' | 'insurance' | null;
 }
 
 const EXTRACTION_SYSTEM_PROMPT = `You are a document data extractor for a personal life administration app.
@@ -21,9 +22,10 @@ Extract the following fields and respond with ONLY a JSON object, no prose, no m
   "provider": string | null,
   "date": string | null,
   "amount": number | null,
-  "expiry_date": string | null
+  "expiry_date": string | null,
+  "category": "water" | "electricity" | "gas" | "internet" | "mobile" | "landline" | "insurance" | null
 }
-Use ISO 8601 (YYYY-MM-DD) for "date" and "expiry_date". "expiry_date" is the expiration or renewal date, when applicable (e.g. warranty end date, insurance renewal date). Use null for any field you cannot determine with confidence.`;
+Use ISO 8601 (YYYY-MM-DD) for "date" and "expiry_date". "expiry_date" is the expiration or renewal date, when applicable (e.g. warranty end date, insurance renewal date). "category" only applies when the document is a recurring utility/insurance bill (invoice or insurance document_type); classify it into exactly one of the categories above based on the provider/content, or null if it doesn't match any or you're not confident. Never guess. Use null for any field you cannot determine with confidence.`;
 
 function stripMarkdownFences(text: string): string {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);

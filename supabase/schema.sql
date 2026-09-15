@@ -202,3 +202,39 @@ create policy "Users can update own insights"
 create policy "Users can delete own insights"
   on public.insights for delete
   using (auth.uid() = user_id);
+
+create table if not exists public.bills (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.users(id) on delete cascade,
+  provider text not null,
+  provider_normalized text generated always as (lower(trim(provider))) stored,
+  category text,              -- 'water' | 'electricity' | 'gas' | 'internet' | 'mobile' | 'landline' | 'insurance'
+  invoice_date date,
+  billing_period text,        -- 'monthly' | 'bimonthly' | 'yearly'
+  amount numeric,
+  created_at timestamptz not null default now()
+);
+
+alter table public.bills enable row level security;
+
+create policy "Users can view own bills"
+  on public.bills for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own bills"
+  on public.bills for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own bills"
+  on public.bills for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own bills"
+  on public.bills for delete
+  using (auth.uid() = user_id);
+
+alter table public.documents
+  add column if not exists bill_id uuid references public.bills(id) on delete set null;
+
+alter table public.insights
+  add column if not exists bill_id uuid references public.bills(id) on delete cascade;

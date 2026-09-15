@@ -3,11 +3,15 @@ import { View, Text, StyleSheet } from 'react-native';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
 import { saveDocument, discardDocument } from '@/lib/extraction';
 import { matchDocumentToContract } from '@/lib/contracts';
-import { generateInsightsForContract } from '@/lib/insights';
+import { generateInsightsForContract, generateInsightsForBill } from '@/lib/insights';
+import { saveBill } from '@/lib/bills';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { DocumentTypeSelector } from '@/components/documents/DocumentTypeSelector';
+import { BillCategorySelector } from '@/components/bills/BillCategorySelector';
+import { BillingPeriodSelector } from '@/components/bills/BillingPeriodSelector';
 import type { DocumentType, ExtractedDocumentData, UploadedDocument } from '@/types/documents';
+import type { Bill, BillCategory, BillingPeriod } from '@/types/bills';
 
 interface Props {
   userId: string;
@@ -23,6 +27,8 @@ export function DocumentPreviewForm({ userId, documentPath, extracted, onSaved, 
   const [date, setDate] = useState(extracted.date ?? '');
   const [amount, setAmount] = useState(extracted.amount !== null ? String(extracted.amount) : '');
   const [expiryDate, setExpiryDate] = useState(extracted.expiry_date ?? '');
+  const [category, setCategory] = useState<BillCategory | null>(extracted.category ?? null);
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod | null>('monthly');
   const [amountError, setAmountError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -56,6 +62,26 @@ export function DocumentPreviewForm({ userId, documentPath, extracted, onSaved, 
       });
 
       try {
+        let bill: Bill | null = null;
+        if (
+          (doc.document_type === 'invoice' || doc.document_type === 'insurance') &&
+          category !== null &&
+          doc.provider !== null &&
+          doc.amount !== null
+        ) {
+          bill = await saveBill({
+            userId,
+            documentId: doc.id,
+            provider: doc.provider,
+            category,
+            invoiceDate: doc.date,
+            billingPeriod,
+            amount: doc.amount,
+          });
+          const billInsights = await generateInsightsForBill({ userId, bill });
+          console.log('bill saved:', bill, 'insights created:', billInsights.length);
+        }
+
         const match = await matchDocumentToContract({
           userId,
           documentId: doc.id,
@@ -66,13 +92,18 @@ export function DocumentPreviewForm({ userId, documentPath, extracted, onSaved, 
           expiryDate: doc.expiry_date,
         });
         if (match) {
-          const insights = await generateInsightsForContract({ userId, contract: match.contract, previousAmount: match.previousAmount });
+          const insights = await generateInsightsForContract({
+            userId,
+            contract: match.contract,
+            previousAmount: match.previousAmount,
+            includePriceIncrease: !bill,
+          });
           console.log('matched contract:', match.contract, 'previousAmount:', match.previousAmount, 'insights created:', insights.length);
         } else {
           console.log('matchDocumentToContract returned null (not eligible or no provider) for document_type:', doc.document_type, 'provider:', doc.provider);
         }
       } catch (matchError) {
-        console.error('matchDocumentToContract/generateInsightsForContract failed:', matchError);
+        console.error('bills/matchDocumentToContract/generateInsights failed:', matchError);
         // matching/insight é best-effort — o documento já foi guardado com sucesso
       }
 
@@ -97,6 +128,12 @@ export function DocumentPreviewForm({ userId, documentPath, extracted, onSaved, 
     <View style={styles.card}>
       <Text style={styles.title}>Review before saving</Text>
       <DocumentTypeSelector value={documentType} onChange={setDocumentType} />
+      {documentType === 'invoice' || documentType === 'insurance' ? (
+        <>
+          <BillCategorySelector value={category} onChange={setCategory} />
+          <BillingPeriodSelector value={billingPeriod} onChange={setBillingPeriod} />
+        </>
+      ) : null}
       <Input label="Provider" value={provider} onChangeText={setProvider} placeholder="e.g. EDP" />
       <Input label="Date" value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" />
       <Input
