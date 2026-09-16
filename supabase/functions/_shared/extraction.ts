@@ -1,5 +1,5 @@
 export interface ExtractedDocumentData {
-  document_type: 'invoice' | 'warranty' | 'insurance' | 'contract' | 'receipt' | null;
+  document_type: 'invoice' | 'warranty' | 'insurance' | 'contract' | 'receipt' | 'will' | 'certificate' | null;
   provider: string | null;
   date: string | null;
   amount: number | null;
@@ -12,10 +12,10 @@ export type ExtractionOutcome =
   | { ok: false; status: number; error: string; detail?: string; rawText?: string };
 
 const EXTRACTION_SYSTEM_PROMPT = `You are a document data extractor for a personal life administration app.
-You will be given an image or PDF of a document such as an invoice, warranty, insurance policy, contract or receipt.
+You will be given an image or PDF of a document such as an invoice, warranty, insurance policy, contract, receipt, will or certificate.
 Extract the following fields and respond with ONLY a JSON object, no prose, no markdown fences:
 {
-  "document_type": "invoice" | "warranty" | "insurance" | "contract" | "receipt" | null,
+  "document_type": "invoice" | "warranty" | "insurance" | "contract" | "receipt" | "will" | "certificate" | null,
   "provider": string | null,
   "date": string | null,
   "amount": number | null,

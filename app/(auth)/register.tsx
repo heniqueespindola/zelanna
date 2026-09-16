@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/Input';
@@ -9,6 +9,7 @@ import { getAuthErrorMessage, isValidEmail } from '@/lib/authErrors';
 
 export default function RegisterScreen() {
   const { signUp } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -37,6 +38,8 @@ export default function RegisterScreen() {
       setError(getAuthErrorMessage(signUpError));
     } else if (needsEmailConfirmation) {
       setConfirmationSent(true);
+    } else {
+      router.replace('/');
     }
     setSubmitting(false);
   };

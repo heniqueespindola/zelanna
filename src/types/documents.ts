@@ -1,6 +1,6 @@
 import type { BillCategory } from '@/types/bills';
 
-export type DocumentType = 'invoice' | 'warranty' | 'insurance' | 'contract' | 'receipt';
+export type DocumentType = 'invoice' | 'warranty' | 'insurance' | 'contract' | 'receipt' | 'will' | 'certificate';
 
 export interface ExtractedDocumentData {
   document_type: DocumentType | null;
@@ -29,5 +29,6 @@ export interface UploadedDocument {
   amount: number | null;
   expiry_date: string | null;
   extracted_data: ExtractedDocumentData;
+  is_estate_document: boolean;
   created_at: string;
 }

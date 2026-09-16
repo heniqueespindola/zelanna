@@ -1,26 +1,26 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import type { DocumentType } from '@/types/documents';
+import type { FinancialAssetType } from '@/types/estate';
 
 interface Props {
-  value: DocumentType | null;
-  onChange: (value: DocumentType) => void;
+  value: FinancialAssetType | null;
+  onChange: (value: FinancialAssetType) => void;
 }
 
-const OPTIONS: { value: DocumentType; label: string }[] = [
-  { value: 'invoice', label: 'Invoice' },
-  { value: 'warranty', label: 'Warranty' },
+const OPTIONS: { value: FinancialAssetType; label: string }[] = [
+  { value: 'bank', label: 'Bank' },
+  { value: 'investment', label: 'Investment' },
+  { value: 'pension', label: 'Pension' },
   { value: 'insurance', label: 'Insurance' },
-  { value: 'contract', label: 'Contract' },
-  { value: 'receipt', label: 'Receipt' },
-  { value: 'will', label: 'Will' },
-  { value: 'certificate', label: 'Certificate' },
+  { value: 'crypto', label: 'Crypto' },
+  { value: 'property', label: 'Property' },
+  { value: 'other', label: 'Other' },
 ];
 
-export function DocumentTypeSelector({ value, onChange }: Props) {
+export function FinancialAssetTypeSelector({ value, onChange }: Props) {
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Document type</Text>
+      <Text style={styles.label}>Type</Text>
       <View style={styles.chips}>
         {OPTIONS.map((option) => {
           const selected = option.value === value;

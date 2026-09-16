@@ -37,7 +37,7 @@ create table if not exists public.documents (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.users(id) on delete cascade,
   file_url text not null,
-  document_type text,             -- 'invoice' | 'warranty' | 'insurance' | 'contract' | 'receipt'
+  document_type text,             -- 'invoice' | 'warranty' | 'insurance' | 'contract' | 'receipt' | 'will' | 'certificate'
   provider text,
   date date,
   amount numeric,
@@ -320,6 +320,9 @@ create policy "Users can delete own bills"
 alter table public.documents
   add column if not exists bill_id uuid references public.bills(id) on delete set null;
 
+alter table public.documents
+  add column if not exists is_estate_document boolean not null default false;
+
 alter table public.insights
   add column if not exists bill_id uuid references public.bills(id) on delete cascade;
 
@@ -417,4 +420,172 @@ create policy "Users can view own gmail import items"
 
 create policy "Users can update own gmail import items"
   on public.gmail_import_items for update
+  using (auth.uid() = user_id);
+
+create table if not exists public.digital_assets (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.users(id) on delete cascade,
+  name text not null,
+  type text,                    -- 'domain' | 'website' | 'social_account' | 'youtube' | 'online_business' | 'digital_ip' | 'crypto_account' | 'other'
+  location text,                -- onde está registado/alojado (ex: 'GoDaddy', 'Google account')
+  credentials_location text,    -- onde as credenciais estão guardadas (nunca a credencial em si)
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.digital_assets enable row level security;
+
+create policy "Users can view own digital assets"
+  on public.digital_assets for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own digital assets"
+  on public.digital_assets for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own digital assets"
+  on public.digital_assets for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own digital assets"
+  on public.digital_assets for delete
+  using (auth.uid() = user_id);
+
+create table if not exists public.financial_assets (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.users(id) on delete cascade,
+  name text not null,
+  type text,                    -- 'bank' | 'investment' | 'pension' | 'insurance' | 'crypto' | 'property' | 'other'
+  institution text,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.financial_assets enable row level security;
+
+create policy "Users can view own financial assets"
+  on public.financial_assets for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own financial assets"
+  on public.financial_assets for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own financial assets"
+  on public.financial_assets for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own financial assets"
+  on public.financial_assets for delete
+  using (auth.uid() = user_id);
+
+create table if not exists public.trusted_people (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.users(id) on delete cascade,
+  name text not null,
+  relationship text,
+  email text,
+  phone text,
+  status text not null default 'active',   -- 'active' | 'revoked'
+  created_at timestamptz not null default now()
+);
+
+alter table public.trusted_people enable row level security;
+
+create policy "Users can view own trusted people"
+  on public.trusted_people for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own trusted people"
+  on public.trusted_people for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own trusted people"
+  on public.trusted_people for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own trusted people"
+  on public.trusted_people for delete
+  using (auth.uid() = user_id);
+
+create table if not exists public.trusted_person_permissions (
+  id uuid default gen_random_uuid() primary key,
+  trusted_person_id uuid references public.trusted_people(id) on delete cascade,
+  section text not null,   -- 'digital_assets' | 'financial_assets' | 'important_documents' | 'assets' | 'coverage' | 'instructions'
+  created_at timestamptz not null default now(),
+  constraint trusted_person_permissions_unique unique (trusted_person_id, section)
+);
+
+alter table public.trusted_person_permissions enable row level security;
+
+create policy "Users can view own trusted person permissions"
+  on public.trusted_person_permissions for select
+  using (exists (
+    select 1 from public.trusted_people
+    where trusted_people.id = trusted_person_permissions.trusted_person_id and trusted_people.user_id = auth.uid()
+  ));
+
+create policy "Users can insert own trusted person permissions"
+  on public.trusted_person_permissions for insert
+  with check (exists (
+    select 1 from public.trusted_people
+    where trusted_people.id = trusted_person_permissions.trusted_person_id and trusted_people.user_id = auth.uid()
+  ));
+
+create policy "Users can delete own trusted person permissions"
+  on public.trusted_person_permissions for delete
+  using (exists (
+    select 1 from public.trusted_people
+    where trusted_people.id = trusted_person_permissions.trusted_person_id and trusted_people.user_id = auth.uid()
+  ));
+
+-- Sem policy de update: uma permissão é concedida (insert) ou revogada (delete), nunca alterada.
+
+create table if not exists public.estate_access_log (
+  id uuid default gen_random_uuid() primary key,
+  trusted_person_id uuid references public.trusted_people(id) on delete cascade,
+  section text not null,
+  accessed_at timestamptz not null default now()
+);
+
+alter table public.estate_access_log enable row level security;
+
+create policy "Users can view own estate access log"
+  on public.estate_access_log for select
+  using (exists (
+    select 1 from public.trusted_people
+    where trusted_people.id = estate_access_log.trusted_person_id and trusted_people.user_id = auth.uid()
+  ));
+
+-- Nesta fase não existe acesso real de trusted people (ver ficha F11, "Fora do escopo") —
+-- só o dono pode simular/registar uma visualização manualmente, daí a policy de insert
+-- também ser owner-side. Quando o mecanismo de acesso real for construído (conta própria
+-- da trusted person + segundo auth.uid(), ver research 2026-09-15-digital-estate.md),
+-- esta policy de insert deve ser substituída por uma RPC SECURITY DEFINER chamada pela
+-- própria trusted person.
+create policy "Users can insert own estate access log"
+  on public.estate_access_log for insert
+  with check (exists (
+    select 1 from public.trusted_people
+    where trusted_people.id = estate_access_log.trusted_person_id and trusted_people.user_id = auth.uid()
+  ));
+
+create table if not exists public.estate_instructions (
+  user_id uuid primary key references public.users(id) on delete cascade,
+  content text not null default '',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.estate_instructions enable row level security;
+
+create policy "Users can view own estate instructions"
+  on public.estate_instructions for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own estate instructions"
+  on public.estate_instructions for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own estate instructions"
+  on public.estate_instructions for update
   using (auth.uid() = user_id);

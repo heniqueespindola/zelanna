@@ -1,26 +1,27 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { colors, fonts, spacing, radius } from '@/constants/theme';
-import type { DocumentType } from '@/types/documents';
+import type { DigitalAssetType } from '@/types/estate';
 
 interface Props {
-  value: DocumentType | null;
-  onChange: (value: DocumentType) => void;
+  value: DigitalAssetType | null;
+  onChange: (value: DigitalAssetType) => void;
 }
 
-const OPTIONS: { value: DocumentType; label: string }[] = [
-  { value: 'invoice', label: 'Invoice' },
-  { value: 'warranty', label: 'Warranty' },
-  { value: 'insurance', label: 'Insurance' },
-  { value: 'contract', label: 'Contract' },
-  { value: 'receipt', label: 'Receipt' },
-  { value: 'will', label: 'Will' },
-  { value: 'certificate', label: 'Certificate' },
+const OPTIONS: { value: DigitalAssetType; label: string }[] = [
+  { value: 'domain', label: 'Domain' },
+  { value: 'website', label: 'Website' },
+  { value: 'social_account', label: 'Social account' },
+  { value: 'youtube', label: 'YouTube' },
+  { value: 'online_business', label: 'Online business' },
+  { value: 'digital_ip', label: 'Digital IP' },
+  { value: 'crypto_account', label: 'Crypto account' },
+  { value: 'other', label: 'Other' },
 ];
 
-export function DocumentTypeSelector({ value, onChange }: Props) {
+export function DigitalAssetTypeSelector({ value, onChange }: Props) {
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Document type</Text>
+      <Text style={styles.label}>Type</Text>
       <View style={styles.chips}>
         {OPTIONS.map((option) => {
           const selected = option.value === value;

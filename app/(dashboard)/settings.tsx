@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
@@ -6,6 +7,7 @@ import { GmailConnectionCard } from '@/components/settings/GmailConnectionCard';
 
 export default function SettingsScreen() {
   const { signOut } = useAuth();
+  const router = useRouter();
 
   return (
     <View style={styles.container}>
@@ -15,6 +17,8 @@ export default function SettingsScreen() {
       <GmailConnectionCard />
 
       {/* TODO: perfil, plano (Stripe), privacidade */}
+
+      <Button title="Manage Digital Estate" variant="primary" onPress={() => router.push('/estate')} />
 
       <Button title="Log out" variant="accent" onPress={signOut} />
     </View>

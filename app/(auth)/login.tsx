@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/Input';
@@ -9,6 +9,7 @@ import { getAuthErrorMessage, isValidEmail } from '@/lib/authErrors';
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +28,11 @@ export default function LoginScreen() {
     setError(null);
     setSubmitting(true);
     const { error: signInError } = await signIn(email, password);
-    if (signInError) setError(getAuthErrorMessage(signInError));
+    if (signInError) {
+      setError(getAuthErrorMessage(signInError));
+    } else {
+      router.replace('/');
+    }
     setSubmitting(false);
   };
 

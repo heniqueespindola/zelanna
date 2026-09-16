@@ -15,10 +15,12 @@ export default function DashboardLayout() {
       <Tabs.Screen name="index" options={{ title: 'Dashboard' }} />
       <Tabs.Screen name="documents" options={{ title: 'Documents' }} />
       <Tabs.Screen name="coverage" options={{ title: 'Coverage' }} />
-      <Tabs.Screen name="assets" options={{ title: 'Assets' }} />
-      <Tabs.Screen name="bills" options={{ title: 'Bills' }} />
-      <Tabs.Screen name="alerts" options={{ title: 'Alerts' }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+      <Tabs.Screen name="more" options={{ title: 'More' }} />
+      <Tabs.Screen name="assets" options={{ href: null }} />
+      <Tabs.Screen name="bills" options={{ href: null }} />
+      <Tabs.Screen name="alerts" options={{ href: null }} />
+      <Tabs.Screen name="estate" options={{ href: null }} />
     </Tabs>
   );
 }
