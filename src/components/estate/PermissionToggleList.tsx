@@ -16,6 +16,7 @@ const SECTIONS: { value: EstateSection; label: string }[] = [
   { value: 'important_documents', label: 'Important Documents' },
   { value: 'assets', label: 'Warranty Vault' },
   { value: 'coverage', label: 'Coverage' },
+  { value: 'contracts', label: 'Insurance Contracts' },
   { value: 'instructions', label: 'Instructions' },
 ];
 

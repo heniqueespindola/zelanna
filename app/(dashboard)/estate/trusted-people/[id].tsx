@@ -33,6 +33,7 @@ const SECTION_LABEL: Record<EstateSection, string> = {
   important_documents: 'Important Documents',
   assets: 'Warranty Vault',
   coverage: 'Coverage',
+  contracts: 'Insurance Contracts',
   instructions: 'Instructions',
 };
 
@@ -138,6 +139,13 @@ export default function TrustedPersonDetailScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Permissions</Text>
         <PermissionToggleList trustedPersonId={person.id} granted={granted} onChanged={setGranted} />
+        {granted.length > 0 ? (
+          <Button
+            title="Share Emergency Pack"
+            variant="primary"
+            onPress={() => router.push(`/estate/emergency-pack?trustedPersonId=${person.id}`)}
+          />
+        ) : null}
       </View>
 
       <View style={styles.section}>

@@ -12,6 +12,7 @@ const SECTION_LABEL: Record<EstateSection, string> = {
   important_documents: 'Important Documents',
   assets: 'Warranty Vault',
   coverage: 'Coverage',
+  contracts: 'Insurance Contracts',
   instructions: 'Instructions',
 };
 

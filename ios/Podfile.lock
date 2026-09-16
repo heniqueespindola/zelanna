@@ -249,10 +249,14 @@ PODS:
   - ExpoModulesWorklets (57.0.17):
     - ExpoModulesCore
     - ExpoModulesJSI
+  - ExpoPrint (57.0.2):
+    - ExpoModulesCore
   - ExpoRouter (57.0.20):
     - ExpoModulesCore
     - RNScreens
   - ExpoSecureStore (57.0.3):
+    - ExpoModulesCore
+  - ExpoSharing (57.0.20):
     - ExpoModulesCore
   - ExpoSplashScreen (57.0.8):
     - ExpoModulesCore
@@ -2364,8 +2368,10 @@ DEPENDENCIES:
   - ExpoModulesCore (from `../node_modules/expo-modules-core/ExpoModulesCore.podspec`)
   - ExpoModulesJSI (from `../node_modules/expo-modules-jsi/apple`)
   - ExpoModulesWorklets (from `../node_modules/expo-modules-core/ExpoModulesWorklets.podspec`)
+  - ExpoPrint (from `../node_modules/expo-print/ios/ExpoPrint.podspec`)
   - ExpoRouter (from `../node_modules/expo-router/ios`)
   - ExpoSecureStore (from `../node_modules/expo-secure-store/ios`)
+  - ExpoSharing (from `../node_modules/expo-sharing/ios`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
   - ExpoSymbols (from `../node_modules/expo-symbols/ios`)
   - "ExpoUI (from `../node_modules/expo-router/node_modules/@expo/ui/ios`)"
@@ -2512,10 +2518,14 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-modules-jsi/apple"
   ExpoModulesWorklets:
     :podspec: "../node_modules/expo-modules-core/ExpoModulesWorklets.podspec"
+  ExpoPrint:
+    :podspec: "../node_modules/expo-print/ios/ExpoPrint.podspec"
   ExpoRouter:
     :path: "../node_modules/expo-router/ios"
   ExpoSecureStore:
     :path: "../node_modules/expo-secure-store/ios"
+  ExpoSharing:
+    :path: "../node_modules/expo-sharing/ios"
   ExpoSplashScreen:
     :path: "../node_modules/expo-splash-screen/ios"
   ExpoSymbols:
@@ -2714,8 +2724,10 @@ SPEC CHECKSUMS:
   ExpoModulesCore: 2786d205dfdf044bcaf4170d8fcaaa1d90157a53
   ExpoModulesJSI: 9df8e7c9719f59e8c001ec33611774137fc1484a
   ExpoModulesWorklets: 767d05688faa3bbf38b19c08abca031b5328093a
+  ExpoPrint: 460476a4b6291114e4d515e8df4c0225b92161b0
   ExpoRouter: e8c323faba5926e06e3909b16f3b4b12ccaccdbb
   ExpoSecureStore: 536804a6aea15cafa49dc969609cd6636d506e68
+  ExpoSharing: 9091cb39a298bf09234c65e790ad952d4a1fdfb4
   ExpoSplashScreen: 6f422fd595600d78520c6b7dcf8a908fb8a7fec0
   ExpoSymbols: 0efd93edf0f825bf3c762582b0769dd3b296235c
   ExpoUI: a0fad5e14b298a3eae971d6e57bb09389d1c3293

@@ -57,6 +57,7 @@ export type EstateSection =
   | 'important_documents'
   | 'assets'
   | 'coverage'
+  | 'contracts'
   | 'instructions';
 
 export interface TrustedPersonPermission {

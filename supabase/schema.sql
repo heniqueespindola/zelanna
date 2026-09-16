@@ -511,7 +511,7 @@ create policy "Users can delete own trusted people"
 create table if not exists public.trusted_person_permissions (
   id uuid default gen_random_uuid() primary key,
   trusted_person_id uuid references public.trusted_people(id) on delete cascade,
-  section text not null,   -- 'digital_assets' | 'financial_assets' | 'important_documents' | 'assets' | 'coverage' | 'instructions'
+  section text not null,   -- 'digital_assets' | 'financial_assets' | 'important_documents' | 'assets' | 'coverage' | 'contracts' | 'instructions'
   created_at timestamptz not null default now(),
   constraint trusted_person_permissions_unique unique (trusted_person_id, section)
 );

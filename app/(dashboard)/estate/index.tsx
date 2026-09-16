@@ -50,6 +50,7 @@ export default function EstateHubScreen() {
     { key: 'financial_assets', title: 'Financial Assets', route: '/estate/financial-assets', countLabel: `${counts?.financial_assets ?? 0} registered` },
     { key: 'important_documents', title: 'Important Documents', route: '/estate/important-documents', countLabel: `${counts?.important_documents ?? 0} registered` },
     { key: 'trusted_people', title: 'Trusted People', route: '/estate/trusted-people', countLabel: `${counts?.trusted_people ?? 0} registered` },
+    { key: 'emergency_pack', title: 'Emergency Pack', route: '/estate/emergency-pack', countLabel: 'Export & share' },
     { key: 'instructions', title: 'Instructions', route: '/estate/instructions', countLabel: hasInstructions ? 'Written' : 'Not written yet' },
   ];
 
