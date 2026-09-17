@@ -26,6 +26,16 @@ export async function fetchContracts(userId: string): Promise<Contract[]> {
   return data ?? [];
 }
 
+export async function fetchContractById(id: string): Promise<Contract | null> {
+  const { data, error } = await supabase
+    .from('contracts')
+    .select(CONTRACT_COLUMNS)
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw new Error('Could not load contract');
+  return data;
+}
+
 export async function fetchLatestDocumentDateByContract(userId: string): Promise<Map<string, string>> {
   const { data, error } = await supabase
     .from('documents')

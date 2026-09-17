@@ -597,3 +597,42 @@ create policy "Users can update own estate instructions"
 create unique index if not exists insights_contract_scoped_unique
   on public.insights (contract_id, type)
   where contract_id is not null and type in ('unused_subscription', 'missing_documentation');
+
+-- Zelanna Agent (F14): audit log de propostas do agente sobre um contrato
+-- (encontrar alternativas, redigir rascunho, aprovar, confirmar envio manual).
+-- Nunca há execução automática — 'executed' só é atingido pela confirmação
+-- explícita do utilizador no ecrã de detalhe.
+create table if not exists public.agent_actions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.users(id) on delete cascade,
+  contract_id uuid references public.contracts(id) on delete cascade,
+  action_type text not null,        -- 'cancel' | 'renegotiate'
+  status text not null default 'proposed',  -- 'proposed' | 'approved' | 'executed' | 'rejected' | 'failed'
+  alternatives jsonb,                -- sugestões do LLM (web_search) — null até serem pedidas
+  draft_content text,                -- rascunho gerado pelo LLM — null até ser gerado
+  approved_at timestamptz,
+  executed_at timestamptz,
+  result text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.agent_actions enable row level security;
+
+create policy "Users can view own agent actions"
+  on public.agent_actions for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own agent actions"
+  on public.agent_actions for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own agent actions"
+  on public.agent_actions for update
+  using (auth.uid() = user_id);
+
+-- Sem policy de delete: um agent_action é histórico/audit, nunca apagado pelo utilizador.
+-- Sem índice único: um contrato pode ter múltiplas propostas ao longo do tempo
+-- (ex: proposta rejeitada e depois retomada), ao contrário de insights (que são idempotentes).
+-- Nota: status = 'failed' não é alcançável nesta fase (não há execução automática que
+-- possa falhar) — mantido no schema apenas para não obrigar a uma migração futura
+-- quando uma fase posterior introduzir execução real (ex: envio via Gmail API).

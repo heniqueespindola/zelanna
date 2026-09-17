@@ -14,6 +14,7 @@ const ITEMS: MoreItem[] = [
   { key: 'bills', title: 'Bills', subtitle: 'Utilities and recurring bills history.', route: '/bills' },
   { key: 'alerts', title: 'Alerts', subtitle: 'Renewals, price increases and anomalies.', route: '/alerts' },
   { key: 'estate', title: 'Digital Estate', subtitle: 'What the people you trust can find.', route: '/estate' },
+  { key: 'agent', title: 'Zelanna Agent', subtitle: 'Renewals, alternatives and cancellation drafts.', route: '/agent' },
 ];
 
 export default function MoreScreen() {

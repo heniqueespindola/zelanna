@@ -21,6 +21,7 @@ export default function DashboardLayout() {
       <Tabs.Screen name="bills" options={{ href: null }} />
       <Tabs.Screen name="alerts" options={{ href: null }} />
       <Tabs.Screen name="estate" options={{ href: null }} />
+      <Tabs.Screen name="agent" options={{ href: null }} />
     </Tabs>
   );
 }
