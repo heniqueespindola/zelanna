@@ -26,6 +26,38 @@ export async function fetchContracts(userId: string): Promise<Contract[]> {
   return data ?? [];
 }
 
+export async function fetchLatestDocumentDateByContract(userId: string): Promise<Map<string, string>> {
+  const { data, error } = await supabase
+    .from('documents')
+    .select('contract_id, date, created_at')
+    .eq('user_id', userId)
+    .not('contract_id', 'is', null)
+    .order('date', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false });
+  if (error) throw new Error('Could not load contract documents');
+  const map = new Map<string, string>();
+  for (const doc of data ?? []) {
+    const contractId = doc.contract_id as string;
+    if (map.has(contractId)) continue;
+    map.set(contractId, (doc.date as string | null) ?? (doc.created_at as string));
+  }
+  return map;
+}
+
+export interface ContractCategoryTotal {
+  type: ContractType;
+  monthlyTotal: number;
+}
+
+export function calculateContractCategoryTotals(contracts: Contract[]): ContractCategoryTotal[] {
+  const map = new Map<ContractType, number>();
+  for (const contract of contracts) {
+    if (!contract.type || contract.current_amount === null) continue;
+    map.set(contract.type, (map.get(contract.type) ?? 0) + contract.current_amount);
+  }
+  return Array.from(map.entries()).map(([type, monthlyTotal]) => ({ type, monthlyTotal }));
+}
+
 async function findContractByProvider(userId: string, providerNormalized: string): Promise<Contract | null> {
   const { data, error } = await supabase
     .from('contracts')

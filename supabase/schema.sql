@@ -589,3 +589,11 @@ create policy "Users can insert own estate instructions"
 create policy "Users can update own estate instructions"
   on public.estate_instructions for update
   using (auth.uid() = user_id);
+
+-- Life Intelligence Avançada (F13): novos tipos de insight scoped por contract_id
+-- ('unused_subscription', 'missing_documentation') são estado idempotente (um por
+-- contract_id+type), ao contrário de 'price_increase'/'renewal' que acumulam histórico
+-- por contract_id — por isso o índice único é filtrado por type.
+create unique index if not exists insights_contract_scoped_unique
+  on public.insights (contract_id, type)
+  where contract_id is not null and type in ('unused_subscription', 'missing_documentation');

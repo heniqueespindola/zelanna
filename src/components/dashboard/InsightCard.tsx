@@ -11,6 +11,10 @@ const TYPE_LABELS: Record<InsightType, string> = {
   coverage_gap: 'Coverage gap',
   coverage_expiring: 'Coverage expiring',
   return_deadline: 'Return deadline',
+  unused_subscription: 'Unused subscription',
+  duplicate_insurance: 'Duplicate insurance',
+  missing_documentation: 'Missing documentation',
+  protection_gap: 'Protection gap',
 };
 
 interface Props {

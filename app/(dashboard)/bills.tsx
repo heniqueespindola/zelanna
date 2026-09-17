@@ -12,33 +12,41 @@ import {
 } from '@/lib/bills';
 import { fetchBillInsights } from '@/lib/insights';
 import { fetchUpcomingBillRenewals, type ContractRenewalEvent } from '@/lib/events';
+import { fetchContracts, calculateContractCategoryTotals } from '@/lib/contracts';
 import { BillGroupCard } from '@/components/bills/BillGroupCard';
 import { PeriodFilter } from '@/components/bills/PeriodFilter';
 import { BillsSummaryCard } from '@/components/bills/BillsSummaryCard';
 import { CategoryBreakdownChart } from '@/components/bills/CategoryBreakdownChart';
 import { BillEvolutionChart } from '@/components/bills/BillEvolutionChart';
 import { BillsAlertsSection } from '@/components/bills/BillsAlertsSection';
+import { ContractCostSummaryCard } from '@/components/bills/ContractCostSummaryCard';
 import { RenewalTimeline } from '@/components/dashboard/RenewalTimeline';
 import type { Bill, BillPeriodFilter } from '@/types/bills';
 import type { Insight } from '@/types/insights';
+import type { Contract } from '@/types/contracts';
 
 export default function BillsScreen() {
   const { user } = useAuth();
   const [bills, setBills] = useState<Bill[] | null>(null);
   const [insights, setInsights] = useState<Insight[] | null>(null);
   const [renewals, setRenewals] = useState<ContractRenewalEvent[] | null>(null);
+  const [contracts, setContracts] = useState<Contract[] | null>(null);
   const [period, setPeriod] = useState<BillPeriodFilter>('all');
 
   useFocusEffect(
     useCallback(() => {
       if (!user) return;
-      Promise.all([fetchBills(user.id), fetchBillInsights(user.id), fetchUpcomingBillRenewals(user.id)]).then(
-        ([loadedBills, loadedInsights, loadedRenewals]) => {
-          setBills(loadedBills);
-          setInsights(loadedInsights);
-          setRenewals(loadedRenewals);
-        }
-      );
+      Promise.all([
+        fetchBills(user.id),
+        fetchBillInsights(user.id),
+        fetchUpcomingBillRenewals(user.id),
+        fetchContracts(user.id),
+      ]).then(([loadedBills, loadedInsights, loadedRenewals, loadedContracts]) => {
+        setBills(loadedBills);
+        setInsights(loadedInsights);
+        setRenewals(loadedRenewals);
+        setContracts(loadedContracts);
+      });
     }, [user])
   );
 
@@ -49,8 +57,16 @@ export default function BillsScreen() {
   );
   const totals = useMemo(() => calculateBillTotals(filteredGroups), [filteredGroups]);
   const categoryTotals = useMemo(() => calculateCategoryTotals(filteredGroups), [filteredGroups]);
+  const contractCategoryTotals = useMemo(
+    () => (contracts ? calculateContractCategoryTotals(contracts) : []),
+    [contracts]
+  );
+  const combinedMonthlyTotal = useMemo(
+    () => totals.monthlyTotal + contractCategoryTotals.reduce((sum, t) => sum + t.monthlyTotal, 0),
+    [totals, contractCategoryTotals]
+  );
 
-  if (bills === null || insights === null || renewals === null) {
+  if (bills === null || insights === null || renewals === null || contracts === null) {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Text style={styles.title}>Bills</Text>
@@ -70,6 +86,7 @@ export default function BillsScreen() {
         <>
           <PeriodFilter value={period} onChange={setPeriod} />
           <BillsSummaryCard monthlyTotal={totals.monthlyTotal} annualTotal={totals.annualTotal} />
+          <ContractCostSummaryCard totals={contractCategoryTotals} combinedMonthlyTotal={combinedMonthlyTotal} />
           <CategoryBreakdownChart totals={categoryTotals} />
           <BillEvolutionChart groups={filteredGroups} />
           <BillsAlertsSection insights={insights} />

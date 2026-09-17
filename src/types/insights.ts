@@ -7,7 +7,11 @@ export type InsightType =
   | 'recurring_increase'
   | 'coverage_gap'
   | 'coverage_expiring'
-  | 'return_deadline';
+  | 'return_deadline'
+  | 'unused_subscription'
+  | 'duplicate_insurance'
+  | 'missing_documentation'
+  | 'protection_gap';
 
 export interface PriceIncreaseInsightData {
   provider: string;
@@ -61,6 +65,29 @@ export interface ReturnDeadlineInsightData {
   daysUntilDeadline: number;
 }
 
+export interface UnusedSubscriptionInsightData {
+  provider: string;
+  monthsSinceLastDocument: number;
+  thresholdMonths: number;
+}
+
+export interface DuplicateInsuranceInsightData {
+  assetName: string;
+  providers: (string | null)[];
+  count: number;
+}
+
+export interface MissingDocumentationInsightData {
+  subjectType: 'asset' | 'contract';
+  subjectName: string;
+}
+
+export interface ProtectionGapInsightData {
+  assetName: string;
+  purchasePrice: number;
+  thresholdValue: number;
+}
+
 export type InsightData =
   | PriceIncreaseInsightData
   | RenewalInsightData
@@ -68,7 +95,11 @@ export type InsightData =
   | RecurringIncreaseInsightData
   | CoverageGapInsightData
   | CoverageExpiringInsightData
-  | ReturnDeadlineInsightData;
+  | ReturnDeadlineInsightData
+  | UnusedSubscriptionInsightData
+  | DuplicateInsuranceInsightData
+  | MissingDocumentationInsightData
+  | ProtectionGapInsightData;
 
 export interface Insight {
   id: string;
@@ -85,4 +116,4 @@ export interface Insight {
   created_at: string;
 }
 
-export type AlertsFilter = 'all' | 'coverage' | 'bills' | 'renewal';
+export type AlertsFilter = 'all' | 'coverage' | 'bills' | 'renewal' | 'subscriptions';

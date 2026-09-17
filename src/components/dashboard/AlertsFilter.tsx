@@ -6,6 +6,7 @@ const OPTIONS: { value: AlertsFilterValue; label: string }[] = [
   { value: 'coverage', label: 'Coverage' },
   { value: 'bills', label: 'Bills' },
   { value: 'renewal', label: 'Renewal' },
+  { value: 'subscriptions', label: 'Subscriptions' },
 ];
 
 interface Props {

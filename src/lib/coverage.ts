@@ -51,6 +51,16 @@ export async function fetchDocumentsWithoutAsset(userId: string): Promise<Upload
   return data ?? [];
 }
 
+export async function fetchAssetIdsWithDocuments(userId: string): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('documents')
+    .select('asset_id')
+    .eq('user_id', userId)
+    .not('asset_id', 'is', null);
+  if (error) throw new Error('Could not load asset documents');
+  return new Set((data ?? []).map((d) => d.asset_id as string));
+}
+
 export async function createAssetFromDocument(params: {
   userId: string;
   documentId: string;

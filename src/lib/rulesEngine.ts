@@ -107,6 +107,37 @@ export function isRecurringIncrease(amountsDesc: number[], consecutivePeriods: n
   return true;
 }
 
+export function monthsSince(dateISO: string, from: Date = new Date()): number {
+  return -daysUntil(dateISO, from) / 30.44;
+}
+
+export function isUnusedSubscription(
+  referenceDateISO: string | null,
+  thresholdMonths: number = 12,
+  from: Date = new Date()
+): boolean {
+  if (!referenceDateISO) return false;
+  return monthsSince(referenceDateISO, from) >= thresholdMonths;
+}
+
+export function findDuplicateCoverage(
+  records: CoverageRecord[],
+  type: CoverageType,
+  thresholdDays: number = 30
+): (CoverageRecord & { type: CoverageType })[] {
+  const inForce = records
+    .filter((r): r is CoverageRecord & { type: CoverageType } => r.type === type)
+    .filter((r) => getCoverageStatus(r.end_date, thresholdDays) !== 'expired');
+  return inForce.length >= 2 ? inForce : [];
+}
+
+export function isProtectionGapCandidate(
+  purchasePrice: number | null,
+  thresholdValue: number = 500
+): boolean {
+  return purchasePrice !== null && purchasePrice >= thresholdValue;
+}
+
 export type InsightSeverity = 'info' | 'warning' | 'critical';
 
 export interface OnboardingInsight {

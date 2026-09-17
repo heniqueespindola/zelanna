@@ -59,6 +59,33 @@ interface ReturnDeadlineBody {
   daysUntilDeadline: number;
 }
 
+interface UnusedSubscriptionBody {
+  type: 'unused_subscription';
+  provider: string;
+  monthsSinceLastDocument: number;
+  thresholdMonths: number;
+}
+
+interface DuplicateInsuranceBody {
+  type: 'duplicate_insurance';
+  assetName: string;
+  providers: (string | null)[];
+  count: number;
+}
+
+interface MissingDocumentationBody {
+  type: 'missing_documentation';
+  subjectType: 'asset' | 'contract';
+  subjectName: string;
+}
+
+interface ProtectionGapBody {
+  type: 'protection_gap';
+  assetName: string;
+  purchasePrice: number;
+  thresholdValue: number;
+}
+
 type RequestBody =
   | PriceIncreaseBody
   | RenewalBody
@@ -66,7 +93,11 @@ type RequestBody =
   | RecurringIncreaseBody
   | CoverageGapBody
   | CoverageExpiringBody
-  | ReturnDeadlineBody;
+  | ReturnDeadlineBody
+  | UnusedSubscriptionBody
+  | DuplicateInsuranceBody
+  | MissingDocumentationBody
+  | ProtectionGapBody;
 
 const EXPLAIN_SYSTEM_PROMPT = `You are writing a short, factual, calm notification for a personal life administration app.
 You will receive numbers that were already calculated by a deterministic rules engine — never recalculate or invent any number.
@@ -78,6 +109,10 @@ For "recurring_increase": state the provider (and category, if given) and that t
 For "coverage_gap": state the asset name, whether the warranty or insurance is missing or expired, and the date if given, using the exact information given.
 For "coverage_expiring": state the asset name, the coverage type (warranty, insurance or extension) and how many days until it expires, using the exact numbers given.
 For "return_deadline": state the asset name and how many days remain to return it, using the exact numbers given.
+For "unused_subscription": state the provider and that no invoice has been uploaded in over the given number of months, suggesting the subscription may be unused — never state this as certain.
+For "duplicate_insurance": state the asset name and that more than one active insurance policy was found on it, using the exact count given.
+For "missing_documentation": state the subject name and that no document is on file for it (an asset or a contract, per subjectType).
+For "protection_gap": state the asset name and that it has no active coverage despite being above the given value threshold, using the exact numbers given.
 Tone: clear, calm, trustworthy, never alarmist — but direct and actionable.`;
 
 Deno.serve(async (req: Request) => {

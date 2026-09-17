@@ -8,6 +8,10 @@ import {
   generateCoverageGapInsights,
   generateCoverageExpiringInsights,
   generateReturnDeadlineInsights,
+  generateUnusedSubscriptionInsights,
+  generateDuplicateInsuranceInsights,
+  generateMissingDocumentationInsights,
+  generateProtectionGapInsights,
   filterInsightsByBucket,
   resolveInsight,
 } from '@/lib/insights';
@@ -31,6 +35,10 @@ export default function AlertsScreen() {
       generateCoverageGapInsights(user.id),
       generateCoverageExpiringInsights(user.id),
       generateReturnDeadlineInsights(user.id),
+      generateUnusedSubscriptionInsights(user.id),
+      generateDuplicateInsuranceInsights(user.id),
+      generateMissingDocumentationInsights(user.id),
+      generateProtectionGapInsights(user.id),
     ]);
     const [loadedInsights, loadedEvents] = await Promise.all([
       fetchAllInsights(user.id, { includeResolved: showResolved }),

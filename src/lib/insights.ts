@@ -5,16 +5,20 @@ import {
   daysUntil,
   evaluateCoverage,
   expiringSeverity,
+  findDuplicateCoverage,
   isAnomaly,
   isExpiringSoon,
+  isProtectionGapCandidate,
   isRecurringIncrease,
   isSignificantIncrease,
+  isUnusedSubscription,
+  monthsSince,
   percentageChange,
   type InsightSeverity,
 } from '@/lib/rulesEngine';
-import { normalizeProvider } from '@/lib/contracts';
+import { fetchContracts, fetchLatestDocumentDateByContract, normalizeProvider } from '@/lib/contracts';
 import { fetchBillHistory } from '@/lib/bills';
-import { fetchAssets, fetchCoverageForUser } from '@/lib/coverage';
+import { fetchAssetIdsWithDocuments, fetchAssets, fetchCoverageForUser } from '@/lib/coverage';
 import type { Contract } from '@/types/contracts';
 import type { Bill } from '@/types/bills';
 import type { CoverageRecord } from '@/types/coverage';
@@ -23,13 +27,17 @@ import type {
   AnomalyInsightData,
   CoverageExpiringInsightData,
   CoverageGapInsightData,
+  DuplicateInsuranceInsightData,
   Insight,
   InsightData,
   InsightType,
+  MissingDocumentationInsightData,
   PriceIncreaseInsightData,
+  ProtectionGapInsightData,
   RecurringIncreaseInsightData,
   RenewalInsightData,
   ReturnDeadlineInsightData,
+  UnusedSubscriptionInsightData,
 } from '@/types/insights';
 
 const INSIGHT_COLUMNS =
@@ -38,6 +46,8 @@ export const RENEWAL_THRESHOLD_DAYS = 30;
 const PRICE_INCREASE_THRESHOLD_PERCENT = 10;
 const ANOMALY_WINDOW_MONTHS = 6;
 const RECURRING_INCREASE_PERIODS = 3;
+const UNUSED_SUBSCRIPTION_THRESHOLD_MONTHS = 12;
+const PROTECTION_GAP_VALUE_THRESHOLD = 500;
 
 function fallbackMessage(type: InsightType, data: InsightData): string {
   if (type === 'price_increase') {
@@ -66,6 +76,24 @@ function fallbackMessage(type: InsightType, data: InsightData): string {
   if (type === 'return_deadline') {
     const d = data as ReturnDeadlineInsightData;
     return `${d.assetName}: return window closes in ${d.daysUntilDeadline} days (${d.returnDeadline}).`;
+  }
+  if (type === 'unused_subscription') {
+    const d = data as UnusedSubscriptionInsightData;
+    return `${d.provider}: no invoice uploaded in over ${Math.floor(d.monthsSinceLastDocument)} months — this subscription may not be in use.`;
+  }
+  if (type === 'duplicate_insurance') {
+    const d = data as DuplicateInsuranceInsightData;
+    return `${d.assetName}: ${d.count} active insurance policies found on this asset — you may be paying for duplicate coverage.`;
+  }
+  if (type === 'missing_documentation') {
+    const d = data as MissingDocumentationInsightData;
+    return d.subjectType === 'asset'
+      ? `${d.subjectName}: no document on file for this asset.`
+      : `${d.subjectName}: no document on file for this contract.`;
+  }
+  if (type === 'protection_gap') {
+    const d = data as ProtectionGapInsightData;
+    return `${d.assetName}: worth over €${d.thresholdValue}, but has no active coverage.`;
   }
   const d = data as RenewalInsightData;
   return `${d.provider} renews in ${d.daysUntilRenewal} days (${d.renewalDate}).`;
@@ -182,7 +210,7 @@ export async function generateCoverageGapInsights(userId: string): Promise<Insig
 async function upsertAssetScopedInsight(params: {
   userId: string;
   assetId: string;
-  type: 'coverage_expiring' | 'return_deadline';
+  type: 'coverage_expiring' | 'return_deadline' | 'duplicate_insurance' | 'missing_documentation' | 'protection_gap';
   coverageType?: 'warranty' | 'insurance' | 'extension';
   severity: InsightSeverity;
   data: InsightData;
@@ -269,6 +297,174 @@ export async function generateReturnDeadlineInsights(userId: string): Promise<In
         assetId: asset.id,
         type: 'return_deadline',
         severity: expiringSeverity(days),
+        data,
+      })
+    );
+  }
+  return created;
+}
+
+async function upsertContractScopedInsight(params: {
+  userId: string;
+  contractId: string;
+  type: 'unused_subscription' | 'missing_documentation';
+  severity: InsightSeverity;
+  data: InsightData;
+}): Promise<Insight> {
+  let message: string;
+  try {
+    message = await explainInsight(params.type, params.data);
+  } catch {
+    message = fallbackMessage(params.type, params.data);
+  }
+  const { data, error } = await supabase
+    .from('insights')
+    .upsert(
+      {
+        user_id: params.userId,
+        contract_id: params.contractId,
+        type: params.type,
+        severity: params.severity,
+        data: params.data,
+        message,
+      },
+      { onConflict: 'contract_id,type' }
+    )
+    .select(INSIGHT_COLUMNS)
+    .single();
+  if (error || !data) throw new Error(`Could not save ${params.type} insight`);
+  return data;
+}
+
+export async function generateUnusedSubscriptionInsights(userId: string): Promise<Insight[]> {
+  const [contracts, latestDocByContract] = await Promise.all([
+    fetchContracts(userId),
+    fetchLatestDocumentDateByContract(userId),
+  ]);
+  const created: Insight[] = [];
+  for (const contract of contracts) {
+    if (contract.type !== 'subscription') continue;
+    const referenceDate = latestDocByContract.get(contract.id) ?? contract.start_date;
+    if (!isUnusedSubscription(referenceDate, UNUSED_SUBSCRIPTION_THRESHOLD_MONTHS)) continue;
+    const data: UnusedSubscriptionInsightData = {
+      provider: contract.provider,
+      monthsSinceLastDocument: Math.floor(monthsSince(referenceDate as string)),
+      thresholdMonths: UNUSED_SUBSCRIPTION_THRESHOLD_MONTHS,
+    };
+    created.push(
+      await upsertContractScopedInsight({
+        userId,
+        contractId: contract.id,
+        type: 'unused_subscription',
+        severity: 'info',
+        data,
+      })
+    );
+  }
+  return created;
+}
+
+export async function generateDuplicateInsuranceInsights(userId: string): Promise<Insight[]> {
+  const [assets, coverage] = await Promise.all([fetchAssets(userId), fetchCoverageForUser()]);
+  if (assets.length === 0) return [];
+
+  const coverageByAsset = new Map<string, CoverageRecord[]>();
+  for (const record of coverage) {
+    const list = coverageByAsset.get(record.asset_id) ?? [];
+    list.push(record);
+    coverageByAsset.set(record.asset_id, list);
+  }
+
+  const created: Insight[] = [];
+  for (const asset of assets) {
+    const duplicates = findDuplicateCoverage(coverageByAsset.get(asset.id) ?? [], 'insurance');
+    if (duplicates.length < 2) continue;
+    const data: DuplicateInsuranceInsightData = {
+      assetName: asset.name,
+      providers: duplicates.map((d) => d.provider),
+      count: duplicates.length,
+    };
+    created.push(
+      await upsertAssetScopedInsight({
+        userId,
+        assetId: asset.id,
+        type: 'duplicate_insurance',
+        severity: 'warning',
+        data,
+      })
+    );
+  }
+  return created;
+}
+
+export async function generateMissingDocumentationInsights(userId: string): Promise<Insight[]> {
+  const [assets, contracts, assetIdsWithDocs, latestDocByContract] = await Promise.all([
+    fetchAssets(userId),
+    fetchContracts(userId),
+    fetchAssetIdsWithDocuments(userId),
+    fetchLatestDocumentDateByContract(userId),
+  ]);
+
+  const created: Insight[] = [];
+
+  for (const asset of assets) {
+    if (assetIdsWithDocs.has(asset.id)) continue;
+    const data: MissingDocumentationInsightData = { subjectType: 'asset', subjectName: asset.name };
+    created.push(
+      await upsertAssetScopedInsight({
+        userId,
+        assetId: asset.id,
+        type: 'missing_documentation',
+        severity: 'info',
+        data,
+      })
+    );
+  }
+
+  for (const contract of contracts) {
+    if (latestDocByContract.has(contract.id)) continue;
+    const data: MissingDocumentationInsightData = { subjectType: 'contract', subjectName: contract.provider };
+    created.push(
+      await upsertContractScopedInsight({
+        userId,
+        contractId: contract.id,
+        type: 'missing_documentation',
+        severity: 'info',
+        data,
+      })
+    );
+  }
+
+  return created;
+}
+
+export async function generateProtectionGapInsights(userId: string): Promise<Insight[]> {
+  const [assets, coverage] = await Promise.all([fetchAssets(userId), fetchCoverageForUser()]);
+  if (assets.length === 0) return [];
+
+  const coverageByAsset = new Map<string, CoverageRecord[]>();
+  for (const record of coverage) {
+    const list = coverageByAsset.get(record.asset_id) ?? [];
+    list.push(record);
+    coverageByAsset.set(record.asset_id, list);
+  }
+
+  const created: Insight[] = [];
+  for (const asset of assets) {
+    if (!isProtectionGapCandidate(asset.purchase_price, PROTECTION_GAP_VALUE_THRESHOLD)) continue;
+    const { primary } = evaluateCoverage(coverageByAsset.get(asset.id) ?? []);
+    if (primary) continue;
+    const data: ProtectionGapInsightData = {
+      assetName: asset.name,
+      purchasePrice: asset.purchase_price as number,
+      thresholdValue: PROTECTION_GAP_VALUE_THRESHOLD,
+    };
+    created.push(
+      await upsertAssetScopedInsight({
+        userId,
+        assetId: asset.id,
+        type: 'protection_gap',
+        severity: 'warning',
         data,
       })
     );
@@ -449,8 +645,15 @@ export function filterInsightsByBucket(insights: Insight[], filter: AlertsFilter
   if (filter === 'all') return insights;
   if (filter === 'coverage')
     return insights.filter(
-      (i) => i.type === 'coverage_gap' || i.type === 'coverage_expiring' || i.type === 'return_deadline'
+      (i) =>
+        i.type === 'coverage_gap' ||
+        i.type === 'coverage_expiring' ||
+        i.type === 'return_deadline' ||
+        i.type === 'duplicate_insurance' ||
+        i.type === 'protection_gap' ||
+        i.type === 'missing_documentation'
     );
   if (filter === 'bills') return insights.filter((i) => i.bill_id !== null);
+  if (filter === 'subscriptions') return insights.filter((i) => i.type === 'unused_subscription');
   return insights.filter((i) => i.type === 'renewal');
 }
